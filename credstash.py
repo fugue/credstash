@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+
+import argparse
+import boto.dynamodb2
+import botocore.session
+import time
+
+from base64 import b64encode, b64decode
+from boto.dynamodb2.fields import HashKey, RangeKey
+from boto.dynamodb2.table import Table
+from boto.dynamodb2.types import STRING
+from Crypto.Cipher import AES
+from Crypto.Util import Counter
+
+
+def listSecrets(region="us-east-1"):
+    '''
+    do a full-table scan of the credential-store and the names and versions of every credential
+    '''
+    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+    rs = secretStore.scan(attributes=("name", "version"))
+    return [secret for secret in rs]
+
+
+def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-1"):
+    '''
+    put a secret called `name` into the secret-store, protected by the key kms_key
+    '''
+    session = botocore.session.get_session()
+    kms = session.get_service('kms')
+    endpoint = kms.get_endpoint(region)
+    kms_response = kms.get_operation('GenerateDataKey').call(endpoint, KeyId=kms_key, KeySpec="AES_256")
+    if not kms_response[0].ok:
+        # TODO: better error handing
+        kms_response[0].raise_for_status()
+        return
+    key = kms_response[1]['Plaintext']
+    wrapped_key = kms_response[1]['CiphertextBlob']
+
+    enc_ctr = Counter.new(128)
+    encryptor = AES.new(key, AES.MODE_CTR, counter=enc_ctr)
+
+    c_text = encryptor.encrypt(secret)
+
+    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+
+    data = {}
+    data['name'] = name
+    data['version'] = version if version != "" else "1"
+    data['key'] = b64encode(wrapped_key)
+    data['contents'] = b64encode(c_text)
+
+    return secretStore.put_item(data=data)
+
+
+def getSecret(name, version="", region="us-east-1"):
+    '''
+    fetch and decrypt the secret called `name`
+    '''
+    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+    if version == "":
+        # do a consistent fetch of the credential with the highest version
+        result_set = [x for x in secretStore.query_2(limit=1, reverse=True, consistent=True, name__eq=name)]
+        material = result_set[0]
+    else:
+        material = secretStore.get_item(name=name, version=version)
+    # TODO: handle failure
+    session = botocore.session.get_session()
+    kms = session.get_service('kms')
+    endpoint = kms.get_endpoint(region)
+    kms_response = kms.get_operation('decrypt').call(endpoint, CiphertextBlob=material['key'])
+    if not kms_response[0].ok:
+        # TODO: better error handing
+        kms_response[0].raise_for_status()
+        return
+    key = kms_response[1]['Plaintext']
+    dec_ctr = Counter.new(128)
+    decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
+    plaintext = decryptor.decrypt(b64decode(material['contents']))
+    return plaintext
+
+def deleteSecrets(name, region="us-east-1"):
+    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+    rs = secretStore.scan(name__eq = name)
+    for i in rs:
+        print("Deleting %s -- version %s" % (i["name"], i["version"]))
+        i.delete()
+
+def createDdbTable(region="us-east-1"):
+    '''
+    create the secret store table in DDB in the specified region
+    '''
+    d_conn = boto.dynamodb2.connect_to_region(region)
+    if 'credential-store' in d_conn.list_tables()['TableNames']:
+        print("Credential Store table already exists")
+        return
+    print("Creating table...")
+    secrets = Table.create('credential-store', schema=[
+        HashKey('name', data_type=STRING),
+        RangeKey('version', data_type=STRING)
+        ], throughput={
+            'read':1,
+            'write':1
+        }
+        )
+    timeout = 1
+    while secrets.describe()['Table']['TableStatus'] != "ACTIVE":
+        print("Waiting for table to be created...")
+        time.sleep(timeout)
+        timeout = timeout * 2 if timeout < 8 else timeout
+    print("Table has been created. Go read the README about how to create your KMS key")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="A credential/secret storage system")
+    
+    parser.add_argument("action", type=str, choices=["delete", "get", "list", "put", "setup"], help="Put, Get, or Delete a credential from the store, list credentials and their versions, or setup the credential store")
+    parser.add_argument("credential", type=str, help="the name of the credential to store/get", nargs='?')
+    parser.add_argument("value", type=str, help="the value of the credential to put (ignored if action is 'get')", nargs='?', default="")
+
+    parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the commend line")
+    parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
+    parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
+    parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
+    
+    args = parser.parse_args()
+    if args.action == "delete":
+        deleteSecrets(args.credential, region=args.region)
+        return
+    if args.action == "list":
+        credential_list = listSecrets(region=args.region)
+        if credential_list:
+            # print list
+            max_len = max([len(x["name"]) for x in credential_list])
+            for cred in credential_list:
+                print("{0:{1}} -- version {2:>}".format(cred["name"], max_len, cred["version"])) 
+        else:
+            return 
+    if args.action == "put":
+        if args.infile != "":
+            f = open(args.infile)
+            value_to_put = f.read()
+            f.close()
+        else:
+            value_to_put = args.value
+        if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=args.region):
+            print("{0} has been stored".format(args.credential))
+            return 
+    if args.action == "get":
+        print(getSecret(args.credential, args.version, region=args.region))
+        return
+    if args.action == "setup":
+        createDdbTable(args.region)
+        return
+
+if __name__ == '__main__':
+    main()
