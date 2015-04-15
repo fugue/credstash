@@ -94,7 +94,7 @@ def getSecret(name, version="", region="us-east-1"):
     endpoint = kms.get_endpoint(region)
     kms_response = kms.get_operation('decrypt').call(endpoint, CiphertextBlob=material['key'])
     if not kms_response[0].ok:
-        raise KmsError("Could not decrypt with KMS key %s" % kms_key)
+        raise KmsError("Could not decrypt with KMS")
     key = kms_response[1]['Plaintext']
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
