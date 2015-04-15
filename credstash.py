@@ -20,7 +20,7 @@ import sys
 import time
 
 from base64 import b64encode, b64decode
-from boto.dynamodb2.exceptions import ItemNotFound
+from boto.dynamodb2.exceptions import ConditionalCheckFailedException, ItemNotFound
 from boto.dynamodb2.fields import HashKey, RangeKey
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import STRING
@@ -143,7 +143,7 @@ def main():
     parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the commend line")
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
-    parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
+    parser.add_argument("-v", "--version", default="1", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
     
     args = parser.parse_args()
     if args.action == "delete":
@@ -170,6 +170,8 @@ def main():
                 print("{0} has been stored".format(args.credential))
         except KmsError as e:
             printStdErr(e)
+        except ConditionalCheckFailedException:
+            printStdErr("%s version %s is already in the credential store. Use the -v flag to specify a new version" % (args.key, args.version))
         return 
     if args.action == "get":
         try:
