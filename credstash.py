@@ -15,7 +15,7 @@
 
 import argparse
 import boto.dynamodb2
-import botocore.session
+import boto.kms
 import sys
 import time
 
@@ -51,14 +51,13 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     '''
     put a secret called `name` into the secret-store, protected by the key kms_key
     '''
-    session = botocore.session.get_session()
-    kms = session.get_service('kms')
-    endpoint = kms.get_endpoint(region)
-    kms_response = kms.get_operation('GenerateDataKey').call(endpoint, KeyId=kms_key, KeySpec="AES_256")
-    if not kms_response[0].ok:
+    kms = boto.kms.connect_to_region(region)
+    try:
+        kms_response = kms.generate_data_key(kms_key, key_spec="AES_256")
+    except:
         raise KmsError("Could not generate data key using KMS key %s" % kms_key)
-    key = kms_response[1]['Plaintext']
-    wrapped_key = kms_response[1]['CiphertextBlob']
+    key = kms_response['Plaintext']
+    wrapped_key = kms_response['CiphertextBlob']
 
     enc_ctr = Counter.new(128)
     encryptor = AES.new(key, AES.MODE_CTR, counter=enc_ctr)
@@ -89,13 +88,13 @@ def getSecret(name, version="", region="us-east-1"):
         material = result_set[0]
     else:
         material = secretStore.get_item(name=name, version=version)
-    session = botocore.session.get_session()
-    kms = session.get_service('kms')
-    endpoint = kms.get_endpoint(region)
-    kms_response = kms.get_operation('decrypt').call(endpoint, CiphertextBlob=material['key'])
-    if not kms_response[0].ok:
+
+    kms = boto.kms.connect_to_region(region)
+    try:
+        kms_response = kms.decrypt(b64decode(material['key']))
+    except:
         raise KmsError("Could not decrypt with KMS")
-    key = kms_response[1]['Plaintext']
+    key = kms_response['Plaintext']
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
     plaintext = decryptor.decrypt(b64decode(material['contents']))
@@ -143,7 +142,7 @@ def main():
     parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the commend line")
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
-    parser.add_argument("-v", "--version", default="1", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
+    parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
     
     args = parser.parse_args()
     if args.action == "delete":
@@ -171,7 +170,7 @@ def main():
         except KmsError as e:
             printStdErr(e)
         except ConditionalCheckFailedException:
-            printStdErr("%s version %s is already in the credential store. Use the -v flag to specify a new version" % (args.key, args.version))
+            printStdErr("%s version %s is already in the credential store. Use the -v flag to specify a new version" % (args.key, args.version if args.version != "" else "1"))
         return 
     if args.action == "get":
         try:
