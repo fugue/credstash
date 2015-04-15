@@ -3,9 +3,11 @@
 import argparse
 import boto.dynamodb2
 import botocore.session
+import sys
 import time
 
 from base64 import b64encode, b64decode
+from boto.dynamodb2.exceptions import ItemNotFound
 from boto.dynamodb2.fields import HashKey, RangeKey
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import STRING
@@ -13,6 +15,16 @@ from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
 
+class KmsError(Exception):
+    def __init__(self, value=""):
+        self.value = "KMS ERROR: " + value if value is not "" else "KMS ERROR"
+    def __str__(self):
+        return self.value
+
+def printStdErr(s):
+    sys.stderr.write(str(s))
+    sys.stderr.write("\n")
+    
 def listSecrets(region="us-east-1"):
     '''
     do a full-table scan of the credential-store and the names and versions of every credential
@@ -31,9 +43,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     endpoint = kms.get_endpoint(region)
     kms_response = kms.get_operation('GenerateDataKey').call(endpoint, KeyId=kms_key, KeySpec="AES_256")
     if not kms_response[0].ok:
-        # TODO: better error handing
-        kms_response[0].raise_for_status()
-        return
+        raise KmsError("Could not generate data key using KMS key %s" % kms_key)
     key = kms_response[1]['Plaintext']
     wrapped_key = kms_response[1]['CiphertextBlob']
 
@@ -61,18 +71,17 @@ def getSecret(name, version="", region="us-east-1"):
     if version == "":
         # do a consistent fetch of the credential with the highest version
         result_set = [x for x in secretStore.query_2(limit=1, reverse=True, consistent=True, name__eq=name)]
+        if not result_set:
+            raise ItemNotFound("Item {'name': '%s'} couldn't be found." % name)
         material = result_set[0]
     else:
         material = secretStore.get_item(name=name, version=version)
-    # TODO: handle failure
     session = botocore.session.get_session()
     kms = session.get_service('kms')
     endpoint = kms.get_endpoint(region)
     kms_response = kms.get_operation('decrypt').call(endpoint, CiphertextBlob=material['key'])
     if not kms_response[0].ok:
-        # TODO: better error handing
-        kms_response[0].raise_for_status()
-        return
+        raise KmsError("Could not decrypt with KMS key %s" % kms_key)
     key = kms_response[1]['Plaintext']
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
@@ -143,11 +152,19 @@ def main():
             f.close()
         else:
             value_to_put = args.value
-        if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=args.region):
-            print("{0} has been stored".format(args.credential))
-            return 
+        try:
+            if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=args.region):
+                print("{0} has been stored".format(args.credential))
+        except KmsError as e:
+            printStdErr(e)
+        return 
     if args.action == "get":
-        print(getSecret(args.credential, args.version, region=args.region))
+        try:
+            print(getSecret(args.credential, args.version, region=args.region))
+        except ItemNotFound as e:
+            printStdErr(e)
+        except KmsError as e:
+            printStdErr(e)
         return
     if args.action == "setup":
         createDdbTable(args.region)
@@ -155,3 +172,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
