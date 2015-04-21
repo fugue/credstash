@@ -61,20 +61,14 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     put a secret called `name` into the secret-store, protected by the key kms_key
     '''
     kms = boto.kms.connect_to_region(region)
-    # generate a key for the actual data encryption
+    # generate a a 64 byte key. Half will be for data encryption, the other half for HMAC
     try:
-        kms_response = kms.generate_data_key(kms_key, key_spec="AES_256")
+        kms_response = kms.generate_data_key(kms_key, number_of_bytes=64)
     except:
-        raise KmsError("Could not generate data key using KMS key %s" % kms_key)
-    data_key = kms_response['Plaintext']
-    wrapped_data_key = kms_response['CiphertextBlob']
-    # generate a key for creating an HMAC for the ciphertext
-    try:
-        kms_response = kms.generate_data_key(kms_key, key_spec="AES_256")
-    except:
-        raise KmsError("Could not generate hmac key using KMS key %s" % kms_key)
-    hmac_key = kms_response['Plaintext']
-    wrapped_hmac_key = kms_response['CiphertextBlob']
+        raise KmsError("Could not generate key using KMS key %s" % kms_key)
+    data_key = kms_response['Plaintext'][:32]
+    hmac_key = kms_response['Plaintext'][32:]
+    wrapped_key = kms_response['CiphertextBlob']
     
     enc_ctr = Counter.new(128)
     encryptor = AES.new(data_key, AES.MODE_CTR, counter=enc_ctr)
@@ -89,9 +83,8 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     data = {}
     data['name'] = name
     data['version'] = version if version != "" else "1"
-    data['key'] = b64encode(wrapped_data_key)
+    data['key'] = b64encode(wrapped_key)
     data['contents'] = b64encode(c_text)
-    data['hmac-key'] = b64encode(wrapped_hmac_key)
     data['hmac'] = b64hmac
     return secretStore.put_item(data=data)
 
@@ -112,19 +105,14 @@ def getSecret(name, version="", region="us-east-1"):
     kms = boto.kms.connect_to_region(region)
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
-        kms_response = kms.decrypt(b64decode(material['hmac-key']))
+        kms_response = kms.decrypt(b64decode(material['key']))
     except:
         raise KmsError("Could not decrypt hmac key with KMS")
-    hmac_key = kms_response['Plaintext']
+    key = kms_response['Plaintext'][:32]
+    hmac_key = kms_response['Plaintext'][32:]
     hmac = HMAC(hmac_key, msg=b64decode(material['contents']), digestmod=SHA256)
     if hmac.hexdigest() != material['hmac']:
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC" % name)
-    # do the actual decryption
-    try:
-        kms_response = kms.decrypt(b64decode(material['key']))
-    except:
-        raise KmsError("Could not decrypt with KMS")
-    key = kms_response['Plaintext']
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
     plaintext = decryptor.decrypt(b64decode(material['contents']))
