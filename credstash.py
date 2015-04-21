@@ -25,6 +25,8 @@ from boto.dynamodb2.fields import HashKey, RangeKey
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import STRING
 from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
+from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
 
@@ -34,6 +36,14 @@ class KmsError(Exception):
     def __str__(self):
         return self.value
 
+class IntegrityError(Exception):
+    def __init__(self, value=""):
+        self.value = "INTEGRITY ERROR: " + value if value is not "" else "INTEGRITY ERROR"
+    def __str__(self):
+        return self.value
+
+
+    
 def printStdErr(s):
     sys.stderr.write(str(s))
     sys.stderr.write("\n")
@@ -52,25 +62,38 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     put a secret called `name` into the secret-store, protected by the key kms_key
     '''
     kms = boto.kms.connect_to_region(region)
+    # generate a key for the actual data encryption
     try:
         kms_response = kms.generate_data_key(kms_key, key_spec="AES_256")
     except:
         raise KmsError("Could not generate data key using KMS key %s" % kms_key)
-    key = kms_response['Plaintext']
-    wrapped_key = kms_response['CiphertextBlob']
-
+    data_key = kms_response['Plaintext']
+    wrapped_data_key = kms_response['CiphertextBlob']
+    # generate a key for creating an HMAC for the ciphertext
+    try:
+        kms_response = kms.generate_data_key(kms_key, key_spec="AES_256")
+    except:
+        raise KmsError("Could not generate hmac key using KMS key %s" % kms_key)
+    hmac_key = kms_response['Plaintext']
+    wrapped_hmac_key = kms_response['CiphertextBlob']
+    
     enc_ctr = Counter.new(128)
-    encryptor = AES.new(key, AES.MODE_CTR, counter=enc_ctr)
+    encryptor = AES.new(data_key, AES.MODE_CTR, counter=enc_ctr)
 
     c_text = encryptor.encrypt(secret)
+    # compute an HMAC using the hmac key and the ciphertext
+    hmac = HMAC(hmac_key, msg=c_text, digestmod=SHA256)
+    b64hmac = hmac.hexdigest()
 
     secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
 
     data = {}
     data['name'] = name
     data['version'] = version if version != "" else "1"
-    data['key'] = b64encode(wrapped_key)
+    data['key'] = b64encode(wrapped_data_key)
     data['contents'] = b64encode(c_text)
+    data['hmac-key'] = b64encode(wrapped_hmac_key)
+    data['hmac'] = b64hmac
 
     return secretStore.put_item(data=data)
 
@@ -90,6 +113,16 @@ def getSecret(name, version="", region="us-east-1"):
         material = secretStore.get_item(name=name, version=version)
 
     kms = boto.kms.connect_to_region(region)
+    # Check the HMAC before we decrypt to verify ciphertext integrity
+    try:
+        kms_response = kms.decrypt(b64decode(material['hmac-key']))
+    except:
+        raise KmsError("Could not decrypt hmac key with KMS")
+    hmac_key = kms_response['Plaintext']
+    hmac = HMAC(hmac_key, msg=b64decode(material['contents']), digestmod=SHA256)
+    if hmac.hexdigest() != material['hmac']:
+        raise IntegrityError("Computed HMAC on %s does not match stored HMAC" % name)
+    # do the actual decryption
     try:
         kms_response = kms.decrypt(b64decode(material['key']))
     except:
@@ -179,6 +212,8 @@ def main():
             printStdErr(e)
         except KmsError as e:
             printStdErr(e)
+        except IntegrityError as e:
+            printStdErr(e)        
         return
     if args.action == "setup":
         createDdbTable(args.region)
