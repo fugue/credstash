@@ -5,7 +5,7 @@ Software systems often need access to some shared credential. For example, your 
 
 Some organizations build complete credential-management systems, but for most of us, managing these credentials is usually an afterthought. In the best case, people use systems like ansible-vault, which does a pretty good job, but leads to other management issues (like where/how to store the master key). A lot of credential management schemes amount to just SCP'ing a `secrets` file out to the fleet, or in the worst case, burning secrets into the SCM (do a github search on `password`).
 
-CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management System (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
+CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management Service (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
 
 ## How does it work?
 After you complete the steps in the `Setup` section, you will have an encryption key in KMS (in this README, we will refer to that key as the `master key`), and a credential storage table in DDB.
@@ -108,3 +108,4 @@ That said, S3 support may happen someday.
 
 ### 5. Where can I learn more about usecases and context for something like credstash?
 Check out this blog post: http://blog.fugue.it/2015-04-21-aws-kms-secrets.html
+
