@@ -42,11 +42,11 @@ class IntegrityError(Exception):
     def __str__(self):
         return self.value
 
-
     
 def printStdErr(s):
     sys.stderr.write(str(s))
     sys.stderr.write("\n")
+
     
 def listSecrets(region="us-east-1"):
     '''
@@ -55,7 +55,6 @@ def listSecrets(region="us-east-1"):
     secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
     rs = secretStore.scan(attributes=("name", "version"))
     return [secret for secret in rs]
-
 
 def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-1"):
     '''
@@ -94,9 +93,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     data['contents'] = b64encode(c_text)
     data['hmac-key'] = b64encode(wrapped_hmac_key)
     data['hmac'] = b64hmac
-
     return secretStore.put_item(data=data)
-
 
 def getSecret(name, version="", region="us-east-1"):
     '''
