@@ -157,7 +157,7 @@ def main():
     parser.add_argument("credential", type=str, help="the name of the credential to store/get", nargs='?')
     parser.add_argument("value", type=str, help="the value of the credential to put (ignored if action is 'get')", nargs='?', default="")
 
-    parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the commend line")
+    parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the command line")
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
     parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
