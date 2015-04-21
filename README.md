@@ -105,3 +105,6 @@ If you are using credstash heavily and need to increase the provisioned reads/wr
 DDB fits the application really well. Having very low latency fetches are really nice if credstash is in the critical path of spinning up an application. Being able to turn throughput up or down based on load and requirements are also great things to have in a config management tool. Also, as credstash gets into more complex credential management functions, the query capabilities of DDB get super handy.
 
 That said, S3 support may happen someday.
+
+### 5. Where can I learn more about usecases and context for something like credstash?
+Check out this blog post: http://blog.fugue.it/2015-04-21-aws-kms-secrets.html
