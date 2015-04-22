@@ -82,7 +82,7 @@ optional arguments:
 ## Security Notes
 Any IAM principal who can get items from the credential store DDB table, and can call KMS.Decrypt, can read stored credentials.
 
-The target deployment-story for `credstash` is an EC2 instance running with an IAM role that has permissions to read the credential store and use the master key. Since IAM role credentials are vended by the instance metadata service, by default, any user on the system can fetch creds and use them to retrieve credentials. That means that by default, the instance boundary is the security boundary for this system. If you are worried about unauthorized users on your instance, you should take steps to secure access to the Instance Metadata Service (for example, use iptables to block connections to 169.254.169.254 except for privileged users). Also, because credstash is written in python, if an attacker can dump them memory of the credstash process, they may be able to recover credentials. This is a known issue, but again, in the target deployment case, the security boundary is assumed to be the instance boundary.
+The target deployment-story for `credstash` is an EC2 instance running with an IAM role that has permissions to read the credential store and use the master key. Since IAM role credentials are vended by the instance metadata service, by default, any user on the system can fetch creds and use them to retrieve credentials. That means that by default, the instance boundary is the security boundary for this system. If you are worried about unauthorized users on your instance, you should take steps to secure access to the Instance Metadata Service (for example, use iptables to block connections to 169.254.169.254 except for privileged users). Also, because credstash is written in python, if an attacker can dump the memory of the credstash process, they may be able to recover credentials. This is a known issue, but again, in the target deployment case, the security boundary is assumed to be the instance boundary.
 
 ## Frequently Asked Questions (FAQ)
 
@@ -108,4 +108,3 @@ That said, S3 support may happen someday.
 
 ### 5. Where can I learn more about use cases and context for something like credstash?
 Check out this blog post: http://blog.fugue.it/2015-04-21-aws-kms-secrets.html
-
