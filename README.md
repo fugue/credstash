@@ -1,9 +1,11 @@
 # CredStash
 
 ## Quick Installation
-* `pip install credstash`
-* Follow the instructions below for setting up a key in KMS.
-* Then, just do `credstash setup` and you're off.
+1. `pip install credstash`
+2. Set up a key called credstash in KMS
+3. Make sure you have AWS creds in a place that boto/botocore can read them
+4. `credstash setup`
+
 
 ## What is this?
 Software systems often need access to some shared credential. For example, your web application needs access to a database password, or an API key for some third party service.
