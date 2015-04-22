@@ -2,6 +2,8 @@
 
 ## Quick Installation
 `pip install credstash`
+Follow the instructions below for setting up a key in KMS.
+Then, just do `credstash setup` and you're off.
 
 ## What is this?
 Software systems often need access to some shared credential. For example, your web application needs access to a database password, or an API key for some third party service.
