@@ -10,7 +10,6 @@ setup(
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
         'License :: OSI Approved :: Apache Software License',
-        'Topic :: System :: Utilities'
         ],
     install_requires=['boto>=2.38.0', 'pycrypto>=2.6.1'],
     scripts=['credstash.py'],
