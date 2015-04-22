@@ -5,7 +5,7 @@ Software systems often need access to some shared credential. For example, your 
 
 Some organizations build complete credential-management systems, but for most of us, managing these credentials is usually an afterthought. In the best case, people use systems like ansible-vault, which does a pretty good job, but leads to other management issues (like where/how to store the master key). A lot of credential management schemes amount to just SCP'ing a `secrets` file out to the fleet, or in the worst case, burning secrets into the SCM (do a github search on `password`).
 
-CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management System (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
+CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management Service (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
 
 ## How does it work?
 After you complete the steps in the `Setup` section, you will have an encryption key in KMS (in this README, we will refer to that key as the `master key`), and a credential storage table in DDB.
@@ -14,11 +14,11 @@ Whenever you want to store/share a credential, such as a database password, you 
 
 When you want to fetch the credential, for example as part of the bootstrap process on your web-server, you simply do `credstash get [credential-name]`. For example, `export DB_PASSWORD=$(credstash get myapp.db.prod)`. When you run `get`, credstash will go and fetch the encrypted credential and the wrapped encryption key from the credential store (DynamoDB). It will then send the wrapped encryption key to KMS, where it is decrypted with the master key. credstash then uses the decrypted data encryption key to decrypt the credential. The credential is printed to `stdout`, so you can use it in scripts or assign environment variables to it.
 
-Credentials stored in the credential-store are versioned an immutable. That is, if you `put` a credential called `foo` with a version of `1` and a value of `bar`, then foo version 1 will always have a value of bar, and there is no way in `credstash` to change it's value (although you could go fiddle with the bits in DDB, but you shouldn't do that). Credential rotation is handed through versions. Suppose you do `credstash put foo bar`, and then decide later to rotate `foo`, you can put version 2 of `foo` by doing `credstash put foo baz -v `. The next time you do `credstash get foo`, it will return `baz`. You can get specific credential versions as well (with the same `-v` flag). You can fetch a list of all credentials in the credential-store and their versions with the `list` command.
+Credentials stored in the credential-store are versioned and immutable. That is, if you `put` a credential called `foo` with a version of `1` and a value of `bar`, then foo version 1 will always have a value of bar, and there is no way in `credstash` to change its value (although you could go fiddle with the bits in DDB, but you shouldn't do that). Credential rotation is handed through versions. Suppose you do `credstash put foo bar`, and then decide later to rotate `foo`, you can put version 2 of `foo` by doing `credstash put foo baz -v `. The next time you do `credstash get foo`, it will return `baz`. You can get specific credential versions as well (with the same `-v` flag). You can fetch a list of all credentials in the credential-store and their versions with the `list` command.
 
 ## Dependencies
 credstash uses the following AWS services:
-* AWS Key Management System (KMS) - for master key management and key wrapping
+* AWS Key Management Service (KMS) - for master key management and key wrapping
 * AWS Identity and Access Management - for access control
 * Amazon DynamoDB - for credential storage
 
@@ -43,7 +43,7 @@ credstash uses the following AWS services:
 ### Setting up credstash
 The python dependencies for credstash are in the `requirements.txt` file. You can install them with `pip install -r requirements.txt`. You will need a C compiler for building `PyCrypto` (you can install `gcc` by doing `apt-get install gcc` or `yum install gcc`).
 
-You will need to have AWS credentials accessible to boto/botocore. The easiest thing to do is to run credstash on an EC2 instance with an IAM role. Alternativly, you can put AWS credentials in the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables. Or, you can put them in a file (see http://boto.readthedocs.org/en/latest/boto_config_tut.html).
+You will need to have AWS credentials accessible to boto/botocore. The easiest thing to do is to run credstash on an EC2 instance with an IAM role. Alternatively, you can put AWS credentials in the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables. Or, you can put them in a file (see http://boto.readthedocs.org/en/latest/boto_config_tut.html).
 
 Once credentials are in place, run `credstash setup`. This will create the DDB table needed for credential storage.
 
@@ -66,7 +66,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -i INFILE, --infile INFILE
                         store the contents of `infile` rather than provide a
-                        value on the commend line
+                        value on the command line
   -k KEY, --key KEY     the KMS key-id of the master key to use. See the
                         README for more information. Defaults to
                         alias/credstash
@@ -106,5 +106,6 @@ DDB fits the application really well. Having very low latency fetches are really
 
 That said, S3 support may happen someday.
 
-### 5. Where can I learn more about usecases and context for something like credstash?
+### 5. Where can I learn more about use cases and context for something like credstash?
 Check out this blog post: http://blog.fugue.it/2015-04-21-aws-kms-secrets.html
+
