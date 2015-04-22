@@ -1,5 +1,8 @@
 # CredStash
 
+## Quick Installation
+`pip install credstash`
+
 ## What is this?
 Software systems often need access to some shared credential. For example, your web application needs access to a database password, or an API key for some third party service.
 
@@ -25,7 +28,7 @@ credstash uses the following AWS services:
 ## Setup
 ### tl;dr
 1. Set up a key called `credstash` in KMS
-2. Install credstash's python dependencies
+2. Install credstash's python dependencies (or just use pip)
 3. Make sure you have AWS creds in a place that boto/botocore can read them
 4. Run `credstash setup`
 
@@ -41,7 +44,13 @@ credstash uses the following AWS services:
 7. Done!
 
 ### Setting up credstash
-The python dependencies for credstash are in the `requirements.txt` file. You can install them with `pip install -r requirements.txt`. You will need a C compiler for building `PyCrypto` (you can install `gcc` by doing `apt-get install gcc` or `yum install gcc`).
+The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto).
+
+The second easiest thing to do is to do `python setup.py install` in the `credstash` directory.
+
+The python dependencies for credstash are in the `requirements.txt` file. You can install them with `pip install -r requirements.txt`.
+
+In all cases, you will need a C compiler for building `PyCrypto` (you can install `gcc` by doing `apt-get install gcc` or `yum install gcc`).
 
 You will need to have AWS credentials accessible to boto/botocore. The easiest thing to do is to run credstash on an EC2 instance with an IAM role. Alternatively, you can put AWS credentials in the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables. Or, you can put them in a file (see http://boto.readthedocs.org/en/latest/boto_config_tut.html).
 
