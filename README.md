@@ -44,7 +44,7 @@ credstash uses the following AWS services:
 7. Done!
 
 ### Setting up credstash
-The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and pycrypto).
+The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto).
 
 The second easiest thing to do is to do `python setup.py install` in the `credstash` directory.
 
