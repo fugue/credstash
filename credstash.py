@@ -48,15 +48,15 @@ def printStdErr(s):
     sys.stderr.write("\n")
 
     
-def listSecrets(region="us-east-1"):
+def listSecrets(region="us-east-1", table="credential-store"):
     '''
     do a full-table scan of the credential-store and the names and versions of every credential
     '''
-    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+    secretStore = Table(table, connection=boto.dynamodb2.connect_to_region(region))
     rs = secretStore.scan(attributes=("name", "version"))
     return [secret for secret in rs]
 
-def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-1"):
+def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-1", table="credential-store"):
     '''
     put a secret called `name` into the secret-store, protected by the key kms_key
     '''
@@ -78,7 +78,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     hmac = HMAC(hmac_key, msg=c_text, digestmod=SHA256)
     b64hmac = hmac.hexdigest()
 
-    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+    secretStore = Table(table, connection=boto.dynamodb2.connect_to_region(region))
 
     data = {}
     data['name'] = name
@@ -88,11 +88,11 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     data['hmac'] = b64hmac
     return secretStore.put_item(data=data)
 
-def getSecret(name, version="", region="us-east-1"):
+def getSecret(name, version="", region="us-east-1", table="credential-store"):
     '''
     fetch and decrypt the secret called `name`
     '''
-    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+    secretStore = Table(table, connection=boto.dynamodb2.connect_to_region(region))
     if version == "":
         # do a consistent fetch of the credential with the highest version
         result_set = [x for x in secretStore.query_2(limit=1, reverse=True, consistent=True, name__eq=name)]
@@ -118,23 +118,23 @@ def getSecret(name, version="", region="us-east-1"):
     plaintext = decryptor.decrypt(b64decode(material['contents']))
     return plaintext
 
-def deleteSecrets(name, region="us-east-1"):
-    secretStore = Table('credential-store', connection=boto.dynamodb2.connect_to_region(region))
+def deleteSecrets(name, region="us-east-1", table="credential-store"):
+    secretStore = Table(table, connection=boto.dynamodb2.connect_to_region(region))
     rs = secretStore.scan(name__eq = name)
     for i in rs:
         print("Deleting %s -- version %s" % (i["name"], i["version"]))
         i.delete()
 
-def createDdbTable(region="us-east-1"):
+def createDdbTable(region="us-east-1", table="credential-store"):
     '''
     create the secret store table in DDB in the specified region
     '''
     d_conn = boto.dynamodb2.connect_to_region(region)
-    if 'credential-store' in d_conn.list_tables()['TableNames']:
+    if table in d_conn.list_tables()['TableNames']:
         print("Credential Store table already exists")
         return
     print("Creating table...")
-    secrets = Table.create('credential-store', schema=[
+    secrets = Table.create(table, schema=[
         HashKey('name', data_type=STRING),
         RangeKey('version', data_type=STRING)
         ], throughput={
@@ -161,13 +161,14 @@ def main():
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
     parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
+    parser.add_argument("-t", "--table", default="credential-store", help="DynamoDB table to use for credential storage")
     
     args = parser.parse_args()
     if args.action == "delete":
-        deleteSecrets(args.credential, region=args.region)
+        deleteSecrets(args.credential, region=args.region, table=args.table)
         return
     if args.action == "list":
-        credential_list = listSecrets(region=args.region)
+        credential_list = listSecrets(region=args.region, table=args.table)
         if credential_list:
             # print list
             max_len = max([len(x["name"]) for x in credential_list])
@@ -183,7 +184,7 @@ def main():
         else:
             value_to_put = args.value
         try:
-            if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=args.region):
+            if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=args.region, table=args.table):
                 print("{0} has been stored".format(args.credential))
         except KmsError as e:
             printStdErr(e)
@@ -192,7 +193,7 @@ def main():
         return 
     if args.action == "get":
         try:
-            print(getSecret(args.credential, args.version, region=args.region))
+            print(getSecret(args.credential, args.version, region=args.region, table=args.table))
         except ItemNotFound as e:
             printStdErr(e)
         except KmsError as e:
@@ -201,7 +202,7 @@ def main():
             printStdErr(e)        
         return
     if args.action == "setup":
-        createDdbTable(args.region)
+        createDdbTable(region=args.region, table=args.table)
         return
 
 if __name__ == '__main__':
