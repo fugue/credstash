@@ -159,6 +159,7 @@ def main():
 
     parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the command line")
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
+    parser.add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
     parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
     parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
     
@@ -192,7 +193,9 @@ def main():
         return 
     if args.action == "get":
         try:
-            print(getSecret(args.credential, args.version, region=args.region))
+            sys.stdout.write(getSecret(args.credential, args.version, region=args.region))
+            if not args.noline:
+                sys.stdout.write("\n")
         except ItemNotFound as e:
             printStdErr(e)
         except KmsError as e:
