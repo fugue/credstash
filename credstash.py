@@ -162,8 +162,9 @@ def main():
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
     parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
-    parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
     parser.add_argument("-t", "--table", default="credential-store", help="DynamoDB table to use for credential storage")
+    parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
+
     
     args = parser.parse_args()
     if args.action == "delete":

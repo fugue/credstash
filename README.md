@@ -62,7 +62,8 @@ Once credentials are in place, run `credstash setup`. This will create the DDB t
 
 ## Usage
 ```
-usage: credstash [-h] [-i INFILE] [-k KEY] [-n] [-r REGION] [-v VERSION]
+usage: credstash [-h] [-i INFILE] [-k KEY] [-n] [-r REGION] [-t TABLE]
+                 [-v VERSION]
                  {delete,get,list,put,setup} [credential] [value]
 
 A credential/secret storage system
@@ -88,6 +89,8 @@ optional arguments:
                         scripts or with binary files)
   -r REGION, --region REGION
                         the AWS region in which to operate
+  -t TABLE, --table TABLE
+                        DynamoDB table to use for credential storage
   -v VERSION, --version VERSION
                         If doing a `put`, put a specific version of the
                         credential (update the credential; defaults to version
