@@ -62,13 +62,14 @@ Once credentials are in place, run `credstash setup`. This will create the DDB t
 
 ## Usage
 ```
-usage: credstash.py [-h] [-i INFILE] [-k KEY] [-r REGION] [-v VERSION]
-                    {get,list,put,setup} [credential] [value]
+usage: credstash [-h] [-i INFILE] [-k KEY] [-n] [-r REGION] [-v VERSION]
+                 {delete,get,list,put,setup} [credential] [value]
 
 A credential/secret storage system
 
 positional arguments:
-  {get,list,put,setup}  Put or Get a credential from the store, list
+  {delete,get,list,put,setup}
+                        Put, Get, or Delete a credential from the store, list
                         credentials and their versions, or setup the
                         credential store
   credential            the name of the credential to store/get
@@ -83,6 +84,8 @@ optional arguments:
   -k KEY, --key KEY     the KMS key-id of the master key to use. See the
                         README for more information. Defaults to
                         alias/credstash
+  -n, --noline          Don't append newline to returned value (useful in
+                        scripts or with binary files)
   -r REGION, --region REGION
                         the AWS region in which to operate
   -v VERSION, --version VERSION
