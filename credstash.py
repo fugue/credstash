@@ -16,6 +16,7 @@
 import argparse
 import boto.dynamodb2
 import boto.kms
+import operator
 import sys
 import time
 
@@ -172,7 +173,7 @@ def main():
         if credential_list:
             # print list of credential names and versions, sorted by name
             max_len = max([len(x["name"]) for x in credential_list])
-            for cred in sorted(credential_list, key=lambda x: x["name"]):
+            for cred in sorted(credential_list, key=operator.itemgetter("name", "version"))
                 print("{0:{1}} -- version {2:>}".format(cred["name"], max_len, cred["version"])) 
         else:
             return 
