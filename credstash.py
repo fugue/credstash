@@ -170,9 +170,9 @@ def main():
     if args.action == "list":
         credential_list = listSecrets(region=args.region)
         if credential_list:
-            # print list
+            # print list of credential names and versions, sorted by name
             max_len = max([len(x["name"]) for x in credential_list])
-            for cred in credential_list:
+            for cred in sorted(credential_list, key=lambda x: x["name"]):
                 print("{0:{1}} -- version {2:>}".format(cred["name"], max_len, cred["version"])) 
         else:
             return 
