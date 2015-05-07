@@ -17,6 +17,7 @@ import argparse
 import boto.dynamodb2
 import boto.kms
 import operator
+import os
 import sys
 import time
 
@@ -30,6 +31,7 @@ from Crypto.Hash import SHA256
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
+DEFAULT_REGION="us-east-1"
 
 class KmsError(Exception):
     def __init__(self, value=""):
@@ -160,17 +162,18 @@ def main():
     parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the command line")
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
-    parser.add_argument("-r", "--region", default="us-east-1", help="the AWS region in which to operate")
+    parser.add_argument("-r", "--region",  help="the AWS region in which to operate")
     parser.add_argument("-t", "--table", default="credential-store", help="DynamoDB table to use for credential storage")
     parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
 
     
     args = parser.parse_args()
+    region = os.getenv("AWS_DEFAULT_REGION", DEFAULT_REGION) if not args.region else args.region
     if args.action == "delete":
-        deleteSecrets(args.credential, region=args.region, table=args.table)
+        deleteSecrets(args.credential, region=region, table=args.table)
         return
     if args.action == "list":
-        credential_list = listSecrets(region=args.region, table=args.table)
+        credential_list = listSecrets(region=region, table=args.table)
         if credential_list:
             # print list of credential names and versions, sorted by name and then by version
             max_len = max([len(x["name"]) for x in credential_list])
@@ -186,7 +189,7 @@ def main():
         else:
             value_to_put = args.value
         try:
-            if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=args.region, table=args.table):
+            if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=region, table=args.table):
                 print("{0} has been stored".format(args.credential))
         except KmsError as e:
             printStdErr(e)
@@ -195,7 +198,7 @@ def main():
         return 
     if args.action == "get":
         try:
-            sys.stdout.write(getSecret(args.credential, args.version, region=args.region, table=args.table))
+            sys.stdout.write(getSecret(args.credential, args.version, region=region, table=args.table))
             if not args.noline:
                 sys.stdout.write("\n")
         except ItemNotFound as e:
@@ -206,7 +209,7 @@ def main():
             printStdErr(e)        
         return
     if args.action == "setup":
-        createDdbTable(region=args.region, table=args.table)
+        createDdbTable(region=region, table=args.table)
         return
 
 if __name__ == '__main__':
