@@ -162,7 +162,7 @@ def main():
     parser.add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the command line")
     parser.add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parser.add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
-    parser.add_argument("-r", "--region",  help="the AWS region in which to operate")
+    parser.add_argument("-r", "--region",  help="the AWS region in which to operate. If a region is not specified, credstash will use the value of the AWS_DEFAULT_REGION env variable, or if that is not set, us-east-1")
     parser.add_argument("-t", "--table", default="credential-store", help="DynamoDB table to use for credential storage")
     parser.add_argument("-v", "--version", default="", help="If doing a `put`, put a specific version of the credential (update the credential; defaults to version `1`). If doing a `get`, get a specific version of the credential (defaults to the latest version).")
 
