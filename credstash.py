@@ -141,8 +141,7 @@ def createDdbTable(region="us-east-1", table="credential-store"):
         ], throughput={
             'read':1,
             'write':1
-        }
-        )
+        }, connection=d_conn)
     timeout = 1
     while secrets.describe()['Table']['TableStatus'] != "ACTIVE":
         print("Waiting for table to be created...")
