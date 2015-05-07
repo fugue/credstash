@@ -58,6 +58,8 @@ In all cases, you will need a C compiler for building `PyCrypto` (you can instal
 
 You will need to have AWS credentials accessible to boto/botocore. The easiest thing to do is to run credstash on an EC2 instance with an IAM role. Alternatively, you can put AWS credentials in the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables. Or, you can put them in a file (see http://boto.readthedocs.org/en/latest/boto_config_tut.html).
 
+You can specify the region in which `credstash` should operate by using the `-r` flag, or by setting the `AWS_DEFAULT_REGION` environment variable. Note that the command line flag takes precedence over the environment variable. If you set neither, then `credstash` will operate against us-east-1.
+
 Once credentials are in place, run `credstash setup`. This will create the DDB table needed for credential storage.
 
 ## Usage
@@ -88,7 +90,10 @@ optional arguments:
   -n, --noline          Don't append newline to returned value (useful in
                         scripts or with binary files)
   -r REGION, --region REGION
-                        the AWS region in which to operate
+                        the AWS region in which to operate. If a region is not
+                        specified, credstash will use the value of the
+                        AWS_DEFAULT_REGION env variable, or if that is not
+                        set, us-east-1
   -t TABLE, --table TABLE
                         DynamoDB table to use for credential storage
   -v VERSION, --version VERSION
