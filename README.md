@@ -21,6 +21,8 @@ Whenever you want to store/share a credential, such as a database password, you 
 
 When you want to fetch the credential, for example as part of the bootstrap process on your web-server, you simply do `credstash get [credential-name]`. For example, `export DB_PASSWORD=$(credstash get myapp.db.prod)`. When you run `get`, credstash will go and fetch the encrypted credential and the wrapped encryption key from the credential store (DynamoDB). It will then send the wrapped encryption key to KMS, where it is decrypted with the master key. credstash then uses the decrypted data encryption key to decrypt the credential. The credential is printed to `stdout`, so you can use it in scripts or assign environment variables to it.
 
+Optionally you can include any number of [Encryption Context](http://docs.aws.amazon.com/kms/latest/developerguide/encrypt-context.html) key value pairs to associate with the credential. The exact set of encryption context key value pairs that were associated with the credential when it was `put` in DynamoDB must be provided in the `get` request to successfully decrypt the credential. These encryption context key value pairs are useful to provide auditing context to the encryption and decryption operations in your CloudTrail logs. They are also useful for constraining access to a given credstash stored credential by using KMS Key Policy conditions and KMS Grant conditions. Doing so allows you to, for example, make sure that your database servers and web-servers can read the web-server DB user password but your database servers can not read your web-servers TLS/SSL certificate's private key. A `put` request with encryption context would look like `credstash put myapp.db.prod supersecretpassword1234 app.tier=db environment=prod`. In order for your web-servers to read that same credential they would execute a `get` call like `export DB_PASSWORD=$(credstash get myapp.db.prod environment=prod app.tier=db)`
+
 Credentials stored in the credential-store are versioned and immutable. That is, if you `put` a credential called `foo` with a version of `1` and a value of `bar`, then foo version 1 will always have a value of bar, and there is no way in `credstash` to change its value (although you could go fiddle with the bits in DDB, but you shouldn't do that). Credential rotation is handed through versions. Suppose you do `credstash put foo bar`, and then decide later to rotate `foo`, you can put version 2 of `foo` by doing `credstash put foo baz -v `. The next time you do `credstash get foo`, it will return `baz`. You can get specific credential versions as well (with the same `-v` flag). You can fetch a list of all credentials in the credential-store and their versions with the `list` command.
 
 ## Dependencies
@@ -64,31 +66,63 @@ Once credentials are in place, run `credstash setup`. This will create the DDB t
 
 ## Usage
 ```
-usage: credstash [-h] [-i INFILE] [-k KEY] [-n] [-r REGION] [-t TABLE]
-                 [-v VERSION]
-                 {delete,get,list,put,setup} [credential] [value]
+usage: credstash [-h] [-r REGION] [-t TABLE] {delete,get,list,put,setup} ...
 
 A credential/secret storage system
 
-positional arguments:
-  {delete,get,list,put,setup}
-                        Put, Get, or Delete a credential from the store, list
-                        credentials and their versions, or setup the
-                        credential store
-  credential            the name of the credential to store/get
-  value                 the value of the credential to put (ignored if action
-                        is 'get')
+delete
+    usage: credstash delete [-h] [-r REGION] [-t TABLE] credential
+
+    positional arguments:
+      credential  the name of the credential to delete
+
+get
+    usage: credstash get [-h] [-r REGION] [-t TABLE] [-k KEY] [-n] [-v VERSION]
+                         credential [context [context ...]]
+
+    positional arguments:
+      credential            the name of the credential to get
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
+
+    optional arguments:
+      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
+                            README for more information. Defaults to
+                            alias/credstash
+      -n, --noline          Don't append newline to returned value (useful in
+                            scripts or with binary files)
+      -v VERSION, --version VERSION
+                            Get a specific version of the credential (defaults to
+                            the latest version).
+
+list
+    usage: credstash list [-h] [-r REGION] [-t TABLE]
+
+put
+    usage: credstash put [-h] [-r REGION] [-t TABLE] [-i INFILE] [-k KEY] [-v VERSION]
+                         credential value [context [context ...]]
+
+    positional arguments:
+      credential            the name of the credential to store
+      value                 the value of the credential to store
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
+
+    optional arguments:
+      -i INFILE, --infile INFILE
+                            store the contents of `infile` rather than provide a
+                            value on the command line
+      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
+                            README for more information. Defaults to
+                            alias/credstash
+      -v VERSION, --version VERSION
+                            Put a specific version of the credential (update the
+                            credential; defaults to version `1`).
+
+setup
+    usage: credstash setup [-h] [-r REGION] [-t TABLE]
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -i INFILE, --infile INFILE
-                        store the contents of `infile` rather than provide a
-                        value on the command line
-  -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                        README for more information. Defaults to
-                        alias/credstash
-  -n, --noline          Don't append newline to returned value (useful in
-                        scripts or with binary files)
   -r REGION, --region REGION
                         the AWS region in which to operate. If a region is not
                         specified, credstash will use the value of the
@@ -96,11 +130,6 @@ optional arguments:
                         set, us-east-1
   -t TABLE, --table TABLE
                         DynamoDB table to use for credential storage
-  -v VERSION, --version VERSION
-                        If doing a `put`, put a specific version of the
-                        credential (update the credential; defaults to version
-                        `1`). If doing a `get`, get a specific version of the
-                        credential (defaults to the latest version).
 ```
 
 ## Security Notes
