@@ -21,6 +21,8 @@ import os
 import os.path
 import sys
 import time
+import re
+import json
 
 from base64 import b64encode, b64decode
 from boto.dynamodb2.exceptions import ConditionalCheckFailedException, ItemNotFound
@@ -33,6 +35,7 @@ from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
 DEFAULT_REGION="us-east-1"
+WILDCARD_CHAR="*"
 
 class KmsError(Exception):
     def __init__(self, value=""):
@@ -63,7 +66,15 @@ def is_key_value_pair(string):
         msg = "%r is not the form of \"key=value\"" % string
         raise argparse.ArgumentTypeError(msg)
     return output
-    
+
+def expand_wildcard(string, secrets):
+    prog = re.compile('^' + string.replace(WILDCARD_CHAR, '.*') + '$')
+    output = []
+    for secret in secrets:
+        if prog.search(secret) is not None:
+            output.append(secret)
+    return output
+
 def listSecrets(region="us-east-1", table="credential-store"):
     '''
     do a full-table scan of the credential-store and the names and versions of every credential
@@ -190,7 +201,7 @@ def main():
 
     action = 'get'
     parsers[action] = subparsers.add_parser(action, help='Get a credential from the store')
-    parsers[action].add_argument("credential", type=str, help="the name of the credential to get")
+    parsers[action].add_argument("credential", type=str, help="the name of the credential to get. Using the wildcard character '%s' will search for credentials that match the pattern" % WILDCARD_CHAR)
     parsers[action].add_argument("context", type=is_key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
     parsers[action].add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parsers[action].add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
@@ -246,9 +257,22 @@ def main():
         return 
     if args.action == "get":
         try:
-            sys.stdout.write(getSecret(args.credential, args.version, region=region, table=args.table, context=args.context))
-            if not args.noline:
-                sys.stdout.write("\n")
+            if WILDCARD_CHAR in args.credential:
+                names = expand_wildcard(args.credential, 
+                                        [x["name"] 
+                                         for x 
+                                         in listSecrets(region=region, table=args.table)])
+                print(json.dumps(dict((name,
+                                      getSecret(name,
+                                                args.version,
+                                                region=region,
+                                                table=args.table,
+                                                context=args.context))
+                                     for name in names)))
+            else:
+                sys.stdout.write(getSecret(args.credential, args.version, region=region, table=args.table, context=args.context))
+                if not args.noline:
+                    sys.stdout.write("\n")
         except ItemNotFound as e:
             printStdErr(e)
         except KmsError as e:
