@@ -99,19 +99,18 @@ list
     usage: credstash list [-h] [-r REGION] [-t TABLE]
 
 put
-    usage: credstash put [-h] [-r REGION] [-t TABLE] [-i INFILE] [-k KEY] [-v VERSION]
+    usage: credstash put [-h] [-r REGION] [-t TABLE] [-k KEY] [-v VERSION]
                          credential value [context [context ...]]
 
     positional arguments:
       credential            the name of the credential to store
-      value                 the value of the credential to store
+      value                 the value of the credential to store or, if beginning
+                            with the "@" character, the filename of the file
+                            containing the value
       context               encryption context key/value pairs associated with the
                             credential in the form of "key=value"
 
     optional arguments:
-      -i INFILE, --infile INFILE
-                            store the contents of `infile` rather than provide a
-                            value on the command line
       -k KEY, --key KEY     the KMS key-id of the master key to use. See the
                             README for more information. Defaults to
                             alias/credstash
