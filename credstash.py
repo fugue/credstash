@@ -60,7 +60,7 @@ def printStdErr(s):
     sys.stderr.write(str(s))
     sys.stderr.write("\n")
 
-def is_key_value_pair(string):
+def key_value_pair(string):
     output = string.split('=')
     if len(output) != 2:
         msg = "%r is not the form of \"key=value\"" % string
@@ -75,6 +75,18 @@ def expand_wildcard(string, secrets):
             output.append(secret)
     return output
 
+def value_or_filename(string):
+    if string[0] == "@":
+        filename = string[1:]
+        try:
+            with open(os.path.expanduser(filename)) as f:
+                output = f.read()
+        except IOError as e:
+            raise argparse.ArgumentTypeError("Unable to read file %s" % filename)
+    else:
+        output = string
+    return output
+    
 def listSecrets(region="us-east-1", table="credential-store"):
     '''
     do a full-table scan of the credential-store and the names and versions of every credential
@@ -202,7 +214,7 @@ def main():
     action = 'get'
     parsers[action] = subparsers.add_parser(action, help='Get a credential from the store')
     parsers[action].add_argument("credential", type=str, help="the name of the credential to get. Using the wildcard character '%s' will search for credentials that match the pattern" % WILDCARD_CHAR)
-    parsers[action].add_argument("context", type=is_key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
+    parsers[action].add_argument("context", type=key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
     parsers[action].add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parsers[action].add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
     parsers[action].add_argument("-v", "--version", default="", help="Get a specific version of the credential (defaults to the latest version).")
@@ -215,9 +227,8 @@ def main():
     action = 'put'
     parsers[action] = subparsers.add_parser(action, help='Put a credential into the store')
     parsers[action].add_argument("credential", type=str, help="the name of the credential to store")
-    parsers[action].add_argument("value", type=str, help="the value of the credential to store", default="")
-    parsers[action].add_argument("context", type=is_key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
-    parsers[action].add_argument("-i", "--infile", default="", help="store the contents of `infile` rather than provide a value on the command line")
+    parsers[action].add_argument("value", type=value_or_filename, help="the value of the credential to store or, if beginning with the \"@\" character, the filename of the file containing the value", default="")
+    parsers[action].add_argument("context", type=key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
     parsers[action].add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parsers[action].add_argument("-v", "--version", default="", help="Put a specific version of the credential (update the credential; defaults to version `1`).")
     parsers[action].set_defaults(action=action)
@@ -241,14 +252,8 @@ def main():
         else:
             return 
     if args.action == "put":
-        if args.infile != "":
-            f = open(args.infile)
-            value_to_put = f.read()
-            f.close()
-        else:
-            value_to_put = args.value
         try:
-            if putSecret(args.credential, value_to_put, args.version, kms_key=args.key, region=region, table=args.table, context=args.context):
+            if putSecret(args.credential, args.value, args.version, kms_key=args.key, region=region, table=args.table, context=args.context):
                 print("{0} has been stored".format(args.credential))
         except KmsError as e:
             printStdErr(e)
