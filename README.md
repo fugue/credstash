@@ -66,7 +66,7 @@ Once credentials are in place, run `credstash setup`. This will create the DDB t
 
 ## Usage
 ```
-usage: credstash [-h] [-r REGION] [-t TABLE] {delete,get,list,put,setup} ...
+usage: credstash [-h] [-r REGION] [-t TABLE] {delete,get,getall,list,put,setup} ...
 
 A credential/secret storage system
 
@@ -86,14 +86,27 @@ get
                             credential in the form of "key=value"
 
     optional arguments:
-      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                            README for more information. Defaults to
-                            alias/credstash
       -n, --noline          Don't append newline to returned value (useful in
                             scripts or with binary files)
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
                             the latest version).
+
+getall
+    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-v VERSION] [-f {json,yaml,csv}]
+                            [context [context ...]]
+    
+    positional arguments:
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
+    
+    optional arguments:
+      -v VERSION, --version VERSION
+                            Get a specific version of the credential (defaults to
+                            the latest version).
+      -f {json,yaml,csv}, --format {json,yaml,csv}
+                            Output format. json(default), yaml or csv.
+
 
 list
     usage: credstash list [-h] [-r REGION] [-t TABLE]
