@@ -75,7 +75,15 @@ def value_or_filename(string):
     else:
         output = string
     return output
-    
+
+def csv_dump(dictionary):
+    import csv, StringIO
+    csvfile = StringIO.StringIO()
+    csvwriter = csv.writer(csvfile)
+    for key in dictionary:
+        csvwriter.writerow([key, dictionary[key]])
+    return csvfile.getvalue()
+
 def listSecrets(region="us-east-1", table="credential-store"):
     '''
     do a full-table scan of the credential-store and the names and versions of every credential
@@ -115,6 +123,23 @@ def putSecret(name, secret, version, kms_key="alias/credstash", region="us-east-
     data['contents'] = b64encode(c_text)
     data['hmac'] = b64hmac
     return secretStore.put_item(data=data)
+
+def getAllSecrets(version="", region="us-east-1", table="credential-store", context=None):
+    '''
+    fetch and decrypt all secrets
+    '''
+    output = {}
+    secrets = listSecrets(region, table)
+    for credential in set([x["name"] for x in secrets]):
+        try:
+            output[credential] = getSecret(credential,
+                                           version,
+                                           region,
+                                           table,
+                                           context)
+        except:
+            pass
+    return output
 
 def getSecret(name, version="", region="us-east-1", table="credential-store", context=None):
     '''
@@ -204,9 +229,15 @@ def main():
     parsers[action] = subparsers.add_parser(action, help='Get a credential from the store')
     parsers[action].add_argument("credential", type=str, help="the name of the credential to get")
     parsers[action].add_argument("context", type=key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
-    parsers[action].add_argument("-k", "--key", default="alias/credstash", help="the KMS key-id of the master key to use. See the README for more information. Defaults to alias/credstash")
     parsers[action].add_argument("-n", "--noline", action="store_true", help="Don't append newline to returned value (useful in scripts or with binary files)")
     parsers[action].add_argument("-v", "--version", default="", help="Get a specific version of the credential (defaults to the latest version).")
+    parsers[action].set_defaults(action=action)
+
+    action = 'getall'
+    parsers[action] = subparsers.add_parser(action, help='Get all credentials from the store')
+    parsers[action].add_argument("context", type=key_value_pair, action=KeyValueToDictionary, nargs='*', help="encryption context key/value pairs associated with the credential in the form of \"key=value\"")
+    parsers[action].add_argument("-v", "--version", default="", help="Get a specific version of the credential (defaults to the latest version).")
+    parsers[action].add_argument("-f", "--format", default="json", choices=["json", "yaml", "csv"], help="Output format. json(default), yaml or csv.")
     parsers[action].set_defaults(action=action)
 
     action = 'list'
@@ -261,11 +292,29 @@ def main():
         except IntegrityError as e:
             printStdErr(e)        
         return
+    if args.action == "getall":
+        secrets = getAllSecrets(args.version, 
+                                region=region, 
+                                table=args.table, 
+                                context=args.context)
+        if args.format == "json":
+            import json
+            output_func = json.dumps
+            output_args = {"sort_keys": True,
+                           "indent": 4,
+                           "separators": (',', ': ')}
+        elif args.format == "yaml":
+            import yaml
+            output_func = yaml.dump
+            output_args = {"default_flow_style":False}
+        elif args.format == 'csv':
+            output_func = csv_dump
+            output_args = {}
+        print(output_func(secrets, **output_args))
+        return
     if args.action == "setup":
         createDdbTable(region=region, table=args.table)
         return
 
 if __name__ == '__main__':
     main()
-
-
