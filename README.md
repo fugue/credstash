@@ -149,7 +149,7 @@ optional arguments:
 ## IAM Policies
 
 ### Secret Writer
-In order to put or write secrets to credstash, at least the following permissions are required:
+In order to put or write secrets to credstash, and you are not using KMS Key Grants or Key Policies, at least the following permissions are required:
 ```
 {
   "Version": "2012-10-17",
@@ -171,10 +171,10 @@ In order to put or write secrets to credstash, at least the following permission
   ]
 }
 ```
-Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console).
+If you are using Key Policies or Grants, then the `kms:GenerateDataKey` is not required in the policy for the IAM user/group/role. Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console). 
 
 ### Secret Reader
-In order to `get` or read a secret from credstash (including `getall`), you must have at least these permissions:
+In order to `get` or read a secret from credstash (including `getall`), and you are not using KMS Key Grants or Key Policies, you must have at least these permissions:
 ```
 {
   "Version": "2012-10-17",
@@ -198,7 +198,7 @@ In order to `get` or read a secret from credstash (including `getall`), you must
   ]
 }
 ```
-Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console).
+If you are using Key Policies or Grants, then the `kms:Decrypt` is not required in the policy for the IAM user/group/role. Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console). Note that the `dynamodb:Scan` permission is not required if you do not use wildcards in your `get`s.
 
 ## Security Notes
 Any IAM principal who can get items from the credential store DDB table, and can call KMS.Decrypt, can read stored credentials.
