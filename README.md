@@ -155,15 +155,13 @@ In order to put or write secrets to credstash, at least the following permission
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "Stmt1433513212209",
       "Action": [
         "kms:GenerateDataKey"
       ],
       "Effect": "Allow",
-      "Resource": "*"
+      "Resource": "arn:aws:kms:us-east-1:AWSACCOUNTID:key/KEY-GUID"
     },
     {
-      "Sid": "Stmt1433513265762",
       "Action": [
         "dynamodb:PutItem"
       ],
@@ -173,7 +171,7 @@ In order to put or write secrets to credstash, at least the following permission
   ]
 }
 ```
-replace `AWSACCOUNTID` with the account ID for your table.
+Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console).
 
 ### Secret Reader
 In order to `get` or read a secret from credstash (including `getall`), you must have at least these permissions:
@@ -182,15 +180,13 @@ In order to `get` or read a secret from credstash (including `getall`), you must
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "Stmt1433513429555",
       "Action": [
         "kms:Decrypt"
       ],
       "Effect": "Allow",
-      "Resource": "*"
+      "Resource": "arn:aws:kms:us-east-1:AWSACCOUNTID:key/KEY-GUID"
     },
     {
-      "Sid": "Stmt1433513526479",
       "Action": [
         "dynamodb:GetItem",
         "dynamodb:Query",
@@ -202,7 +198,7 @@ In order to `get` or read a secret from credstash (including `getall`), you must
   ]
 }
 ```
-replace `AWSACCOUNTID` with the account ID for your table.
+Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console).
 
 ## Security Notes
 Any IAM principal who can get items from the credential store DDB table, and can call KMS.Decrypt, can read stored credentials.
