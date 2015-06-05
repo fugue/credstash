@@ -81,7 +81,9 @@ get
                          credential [context [context ...]]
 
     positional arguments:
-      credential            the name of the credential to get
+      credential            the name of the credential to get. Using the wildcard
+                            character '*' will search for credentials that match
+                            the pattern
       context               encryption context key/value pairs associated with the
                             credential in the form of "key=value"
 
