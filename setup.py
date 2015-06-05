@@ -11,7 +11,7 @@ setup(
         'Intended Audience :: System Administrators',
         'License :: OSI Approved :: Apache Software License',
         ],
-    install_requires=['boto>=2.38.0', 'pycrypto>=2.6.1'],
+    install_requires=['boto>=2.38.0', 'pycrypto>=2.6.1', 'PyYaml>=3.11'],
     scripts=['credstash.py'],
     entry_points={
         'console_scripts': [
