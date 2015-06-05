@@ -146,6 +146,64 @@ optional arguments:
                         DynamoDB table to use for credential storage
 ```
 
+## IAM Policies
+
+### Secret Writer
+In order to put or write secrets to credstash, at least the following permissions are required:
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Stmt1433513212209",
+      "Action": [
+        "kms:GenerateDataKey"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Stmt1433513265762",
+      "Action": [
+        "dynamodb:PutItem"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:dynamodb:us-east-1:AWSACCOUNTID:table/credential-store"
+    }
+  ]
+}
+```
+replace `AWSACCOUNTID` with the account ID for your table.
+
+### Secret Reader
+In order to `get` or read a secret from credstash (including `getall`), you must have at least these permissions:
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Stmt1433513429555",
+      "Action": [
+        "kms:Decrypt"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Stmt1433513526479",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:dynamodb:us-east-1:AWSACCOUNTID:table/credential-store"
+    }
+  ]
+}
+```
+replace `AWSACCOUNTID` with the account ID for your table.
+
 ## Security Notes
 Any IAM principal who can get items from the credential store DDB table, and can call KMS.Decrypt, can read stored credentials.
 
