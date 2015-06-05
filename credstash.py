@@ -16,13 +16,16 @@
 import argparse
 import boto.dynamodb2
 import boto.kms
+import csv
+import json
 import operator
 import os
 import os.path
+import StringIO
 import sys
 import time
 import re
-import json
+import yaml
 
 from base64 import b64encode, b64decode
 from boto.dynamodb2.exceptions import ConditionalCheckFailedException, ItemNotFound
@@ -88,7 +91,6 @@ def value_or_filename(string):
     return output
 
 def csv_dump(dictionary):
-    import csv, StringIO
     csvfile = StringIO.StringIO()
     csvwriter = csv.writer(csvfile)
     for key in dictionary:
@@ -322,13 +324,11 @@ def main():
                                 table=args.table, 
                                 context=args.context)
         if args.format == "json":
-            import json
             output_func = json.dumps
             output_args = {"sort_keys": True,
                            "indent": 4,
                            "separators": (',', ': ')}
         elif args.format == "yaml":
-            import yaml
             output_func = yaml.dump
             output_args = {"default_flow_style":False}
         elif args.format == 'csv':
