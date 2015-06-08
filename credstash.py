@@ -56,7 +56,7 @@ class KeyValueToDictionary(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, 
                 self.dest, 
-                dict((x[0], x[1]) for x in values)
+                dict((x[0], x[1]) for x in values))
 
     
 def printStdErr(s):
