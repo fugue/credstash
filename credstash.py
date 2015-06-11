@@ -97,6 +97,17 @@ def csv_dump(dictionary):
         csvwriter.writerow([key, dictionary[key]])
     return csvfile.getvalue()
 
+def getHighestVersion(name, region="us-east-1", table="credential-store"):
+    '''
+    do a full-table scan of the credential-store and the names and versions of every credential
+    '''
+    secretStore = Table(table, connection=boto.dynamodb2.connect_to_region(region))
+    result_set = [x for x in secretStore.query_2(limit=1, reverse=True, consistent=True, name__eq=name)]
+    if not result_set:
+        return 0
+    else:
+        return result_set[0]["version"]
+
 def listSecrets(region="us-east-1", table="credential-store"):
     '''
     do a full-table scan of the credential-store and the names and versions of every credential
@@ -291,7 +302,8 @@ def main():
         except KmsError as e:
             printStdErr(e)
         except ConditionalCheckFailedException:
-            printStdErr("%s version %s is already in the credential store. Use the -v flag to specify a new version" % (args.key, args.version if args.version != "" else "1"))
+            latestVersion = getHighestVersion(args.credential, region, args.table)
+            printStdErr("%s version %s is already in the credential store. Use the -v flag to specify a new version" % (args.credential, latestVersion))
         return 
     if args.action == "get":
         try:
