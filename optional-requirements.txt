@@ -3,4 +3,4 @@
 #      $ pip install -r optional-requirements.txt
 
 # In order to output `getall` in YAML format you need PyYAML
-PyYAML==3.11
+PyYAML==3.10
