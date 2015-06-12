@@ -25,7 +25,12 @@ import StringIO
 import sys
 import time
 import re
-import yaml
+
+try:
+    import yaml
+    NO_YAML = False
+except ImportError:
+    NO_YAML = True
 
 from base64 import b64encode, b64decode
 from boto.dynamodb2.exceptions import ConditionalCheckFailedException
@@ -327,7 +332,7 @@ def main():
     action = 'getall'
     parsers[action] = subparsers.add_parser(action,
                                             help="Get all credentials from "
-                                            " the store")
+                                            "the store")
     parsers[action].add_argument("context", type=key_value_pair,
                                  action=KeyValueToDictionary, nargs='*',
                                  help="encryption context key/value pairs "
@@ -337,9 +342,10 @@ def main():
                                  help="Get a specific version of the "
                                  "credential (defaults to the latest version)")
     parsers[action].add_argument("-f", "--format", default="json",
-                                 choices=["json", "yaml", "csv"],
-                                 help="Output format. json(default), yaml "
-                                 "or csv.")
+                                 choices=["json", "csv"] +
+                                 ([] if NO_YAML else ["yaml"]),
+                                 help="Output format. json(default) " +
+                                 ("" if NO_YAML else "yaml ") + "or csv.")
     parsers[action].set_defaults(action=action)
 
     action = 'list'
@@ -451,7 +457,7 @@ def main():
             output_args = {"sort_keys": True,
                            "indent": 4,
                            "separators": (',', ': ')}
-        elif args.format == "yaml":
+        elif not NO_YAML and args.format == "yaml":
             output_func = yaml.dump
             output_args = {"default_flow_style": False}
         elif args.format == 'csv':
