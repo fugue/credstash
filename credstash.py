@@ -94,6 +94,9 @@ def expand_wildcard(string, secrets):
 
 
 def value_or_filename(string):
+    # argparse running on old version of python (<2.7) will pass an empty
+    # string to this function before it passes the actual value.
+    # If an empty string is passes in, just return an empty string
     if string == "":
         return ""
     if string[0] == "@":
