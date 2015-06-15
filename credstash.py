@@ -94,6 +94,8 @@ def expand_wildcard(string, secrets):
 
 
 def value_or_filename(string):
+    if string == "":
+        return ""
     if string[0] == "@":
         filename = string[1:]
         try:
