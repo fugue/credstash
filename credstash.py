@@ -395,7 +395,7 @@ def main():
     parsers[action].set_defaults(action=action)
 
     args = parsers['super'].parse_args()
-    
+
     region = os.getenv(
         "AWS_DEFAULT_REGION", DEFAULT_REGION) if not args.region \
         else args.region
@@ -426,7 +426,7 @@ def main():
             except ConditionalCheckFailedException:
                 latestVersion = getHighestVersion(args.credential, region,
                                                   args.table)
-                printStdErr("%s version %s is already in the credential store. "
+                printStdErr("%s version %s is already in the credential store."
                             "Use the -v flag to specify a new version" %
                             (args.credential, latestVersion))
             return
