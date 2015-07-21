@@ -21,10 +21,14 @@ import json
 import operator
 import os
 import os.path
-import StringIO
 import sys
 import time
 import re
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 try:
     import yaml
@@ -113,7 +117,7 @@ def value_or_filename(string):
 
 
 def csv_dump(dictionary):
-    csvfile = StringIO.StringIO()
+    csvfile = StringIO()
     csvwriter = csv.writer(csvfile)
     for key in dictionary:
         csvwriter.writerow([key, dictionary[key]])
