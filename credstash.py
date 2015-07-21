@@ -395,88 +395,92 @@ def main():
     parsers[action].set_defaults(action=action)
 
     args = parsers['super'].parse_args()
+    
     region = os.getenv(
         "AWS_DEFAULT_REGION", DEFAULT_REGION) if not args.region \
         else args.region
-    if args.action == "delete":
-        deleteSecrets(args.credential, region=region, table=args.table)
-        return
-    if args.action == "list":
-        credential_list = listSecrets(region=region, table=args.table)
-        if credential_list:
-            # print list of credential names and versions,
-            # sorted by name and then by version
-            max_len = max([len(x["name"]) for x in credential_list])
-            for cred in sorted(credential_list,
-                               key=operator.itemgetter("name", "version")):
-                print("{0:{1}} -- version {2:>}".format(
-                    cred["name"], max_len, cred["version"]))
-        else:
+    if "action" in vars(args):
+        if args.action == "delete":
+            deleteSecrets(args.credential, region=region, table=args.table)
             return
-    if args.action == "put":
-        try:
-            if putSecret(args.credential, args.value, args.version,
-                         kms_key=args.key, region=region, table=args.table,
-                         context=args.context):
-                print("{0} has been stored".format(args.credential))
-        except KmsError as e:
-            printStdErr(e)
-        except ConditionalCheckFailedException:
-            latestVersion = getHighestVersion(args.credential, region,
-                                              args.table)
-            printStdErr("%s version %s is already in the credential store. "
-                        "Use the -v flag to specify a new version" %
-                        (args.credential, latestVersion))
-        return
-    if args.action == "get":
-        try:
-            if WILDCARD_CHAR in args.credential:
-                names = expand_wildcard(args.credential,
-                                        [x["name"]
-                                         for x
-                                         in listSecrets(region=region,
-                                                        table=args.table)])
-                print(json.dumps(dict((name,
-                                      getSecret(name,
-                                                args.version,
-                                                region=region,
-                                                table=args.table,
-                                                context=args.context))
-                                      for name in names)))
+        if args.action == "list":
+            credential_list = listSecrets(region=region, table=args.table)
+            if credential_list:
+                # print list of credential names and versions,
+                # sorted by name and then by version
+                max_len = max([len(x["name"]) for x in credential_list])
+                for cred in sorted(credential_list,
+                                   key=operator.itemgetter("name", "version")):
+                    print("{0:{1}} -- version {2:>}".format(
+                        cred["name"], max_len, cred["version"]))
             else:
-                sys.stdout.write(getSecret(args.credential, args.version,
-                                           region=region, table=args.table,
-                                           context=args.context))
-                if not args.noline:
-                    sys.stdout.write("\n")
-        except ItemNotFound as e:
-            printStdErr(e)
-        except KmsError as e:
-            printStdErr(e)
-        except IntegrityError as e:
-            printStdErr(e)
-        return
-    if args.action == "getall":
-        secrets = getAllSecrets(args.version,
-                                region=region,
-                                table=args.table,
-                                context=args.context)
-        if args.format == "json":
-            output_func = json.dumps
-            output_args = {"sort_keys": True,
-                           "indent": 4,
-                           "separators": (',', ': ')}
-        elif not NO_YAML and args.format == "yaml":
-            output_func = yaml.dump
-            output_args = {"default_flow_style": False}
-        elif args.format == 'csv':
-            output_func = csv_dump
-            output_args = {}
-        print(output_func(secrets, **output_args))
-        return
-    if args.action == "setup":
-        createDdbTable(region=region, table=args.table)
-        return
+                return
+        if args.action == "put":
+            try:
+                if putSecret(args.credential, args.value, args.version,
+                             kms_key=args.key, region=region, table=args.table,
+                             context=args.context):
+                    print("{0} has been stored".format(args.credential))
+            except KmsError as e:
+                printStdErr(e)
+            except ConditionalCheckFailedException:
+                latestVersion = getHighestVersion(args.credential, region,
+                                                  args.table)
+                printStdErr("%s version %s is already in the credential store. "
+                            "Use the -v flag to specify a new version" %
+                            (args.credential, latestVersion))
+            return
+        if args.action == "get":
+            try:
+                if WILDCARD_CHAR in args.credential:
+                    names = expand_wildcard(args.credential,
+                                            [x["name"]
+                                             for x
+                                             in listSecrets(region=region,
+                                                            table=args.table)])
+                    print(json.dumps(dict((name,
+                                          getSecret(name,
+                                                    args.version,
+                                                    region=region,
+                                                    table=args.table,
+                                                    context=args.context))
+                                          for name in names)))
+                else:
+                    sys.stdout.write(getSecret(args.credential, args.version,
+                                               region=region, table=args.table,
+                                               context=args.context))
+                    if not args.noline:
+                        sys.stdout.write("\n")
+            except ItemNotFound as e:
+                printStdErr(e)
+            except KmsError as e:
+                printStdErr(e)
+            except IntegrityError as e:
+                printStdErr(e)
+            return
+        if args.action == "getall":
+            secrets = getAllSecrets(args.version,
+                                    region=region,
+                                    table=args.table,
+                                    context=args.context)
+            if args.format == "json":
+                output_func = json.dumps
+                output_args = {"sort_keys": True,
+                               "indent": 4,
+                               "separators": (',', ': ')}
+            elif not NO_YAML and args.format == "yaml":
+                output_func = yaml.dump
+                output_args = {"default_flow_style": False}
+            elif args.format == 'csv':
+                output_func = csv_dump
+                output_args = {}
+            print(output_func(secrets, **output_args))
+            return
+        if args.action == "setup":
+            createDdbTable(region=region, table=args.table)
+            return
+    else:
+        parsers['super'].print_help()
 
 if __name__ == '__main__':
     main()
