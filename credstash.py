@@ -24,6 +24,7 @@ import os.path
 import sys
 import time
 import re
+import boto3
 
 try:
     from StringIO import StringIO
@@ -156,11 +157,13 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
-    kms = boto.kms.connect_to_region(region)
+    if not context:
+        context = {}
+    kms = boto3.client('kms', region_name=region)
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
     try:
-        kms_response = kms.generate_data_key(kms_key, context, 64)
+        kms_response = kms.generate_data_key(KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
     except:
         raise KmsError("Could not generate key using KMS key %s" % kms_key)
     data_key = kms_response['Plaintext'][:32]
@@ -211,6 +214,8 @@ def getSecret(name, version="", region="us-east-1",
     '''
     fetch and decrypt the secret called `name`
     '''
+    if not context:
+        context = {}
     secretStore = Table(table,
                         connection=boto.dynamodb2.connect_to_region(region))
     if version == "":
@@ -224,10 +229,10 @@ def getSecret(name, version="", region="us-east-1",
     else:
         material = secretStore.get_item(name=name, version=version)
 
-    kms = boto.kms.connect_to_region(region)
+    kms = boto3.client('kms', region_name=region)
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
-        kms_response = kms.decrypt(b64decode(material['key']), context)
+        kms_response = kms.decrypt(CiphertextBlob=b64decode(material['key']), EncryptionContext=context)
     except boto.kms.exceptions.InvalidCiphertextException:
         if context is None:
             msg = ("Could not decrypt hmac key with KMS. The credential may "
@@ -249,7 +254,7 @@ def getSecret(name, version="", region="us-east-1",
                              % name)
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
-    plaintext = decryptor.decrypt(b64decode(material['contents']))
+    plaintext = decryptor.decrypt(b64decode(material['contents'])).decode("utf-8")
     return plaintext
 
 
@@ -480,3 +485,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
