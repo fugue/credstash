@@ -184,8 +184,8 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     data = {}
     data['name'] = name
     data['version'] = version if version != "" else "1"
-    data['key'] = b64encode(wrapped_key)
-    data['contents'] = b64encode(c_text)
+    data['key'] = b64encode(wrapped_key).decode('utf-8')
+    data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
     return secretStore.put_item(data=data)
 
