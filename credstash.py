@@ -43,6 +43,7 @@ from boto.dynamodb2.exceptions import ItemNotFound
 from boto.dynamodb2.fields import HashKey, RangeKey
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import STRING
+from boto.kms.exceptions import InvalidCiphertextException
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Hash.HMAC import HMAC
@@ -233,7 +234,7 @@ def getSecret(name, version="", region="us-east-1",
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
         kms_response = kms.decrypt(CiphertextBlob=b64decode(material['key']), EncryptionContext=context)
-    except boto.kms.exceptions.InvalidCiphertextException:
+    except InvalidCiphertextException:
         if context is None:
             msg = ("Could not decrypt hmac key with KMS. The credential may "
                    "require that an encryption context be provided to decrypt "
