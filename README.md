@@ -23,7 +23,7 @@ When you want to fetch the credential, for example as part of the bootstrap proc
 
 Optionally you can include any number of [Encryption Context](http://docs.aws.amazon.com/kms/latest/developerguide/encrypt-context.html) key value pairs to associate with the credential. The exact set of encryption context key value pairs that were associated with the credential when it was `put` in DynamoDB must be provided in the `get` request to successfully decrypt the credential. These encryption context key value pairs are useful to provide auditing context to the encryption and decryption operations in your CloudTrail logs. They are also useful for constraining access to a given credstash stored credential by using KMS Key Policy conditions and KMS Grant conditions. Doing so allows you to, for example, make sure that your database servers and web-servers can read the web-server DB user password but your database servers can not read your web-servers TLS/SSL certificate's private key. A `put` request with encryption context would look like `credstash put myapp.db.prod supersecretpassword1234 app.tier=db environment=prod`. In order for your web-servers to read that same credential they would execute a `get` call like `export DB_PASSWORD=$(credstash get myapp.db.prod environment=prod app.tier=db)`
 
-Credentials stored in the credential-store are versioned and immutable. That is, if you `put` a credential called `foo` with a version of `1` and a value of `bar`, then foo version 1 will always have a value of bar, and there is no way in `credstash` to change its value (although you could go fiddle with the bits in DDB, but you shouldn't do that). Credential rotation is handed through versions. Suppose you do `credstash put foo bar`, and then decide later to rotate `foo`, you can put version 2 of `foo` by doing `credstash put foo baz -v `. The next time you do `credstash get foo`, it will return `baz`. You can get specific credential versions as well (with the same `-v` flag). You can fetch a list of all credentials in the credential-store and their versions with the `list` command.
+Credentials stored in the credential-store are versioned and immutable. That is, if you `put` a credential called `foo` with a version of `1` and a value of `bar`, then foo version 1 will always have a value of bar, and there is no way in `credstash` to change its value (although you could go fiddle with the bits in DDB, but you shouldn't do that). Credential rotation is handed through versions. Suppose you do `credstash put foo bar`, and then decide later to rotate `foo`, you can put version 2 of `foo` by doing `credstash put foo baz -v `. The next time you do `credstash get foo`, it will return `baz`. You can get specific credential versions as well (with the same `-v` flag). You can fetch a list of all credentials in the credential-store and their versions with the `list` command. If you use integer version numbers (1,2,3,...), then you can use the `-a` flag with the `put` command to automatically increment the version number.
 
 ## Dependencies
 credstash uses the following AWS services:
@@ -114,24 +114,29 @@ list
     usage: credstash list [-h] [-r REGION] [-t TABLE]
 
 put
-    usage: credstash put [-h] [-r REGION] [-t TABLE] [-k KEY] [-v VERSION]
-                         credential value [context [context ...]]
+usage: credstash put [-h] [-k KEY] [-v VERSION] [-a]
+                     credential value [context [context ...]]
 
-    positional arguments:
-      credential            the name of the credential to store
-      value                 the value of the credential to store or, if beginning
-                            with the "@" character, the filename of the file
-                            containing the value
-      context               encryption context key/value pairs associated with the
-                            credential in the form of "key=value"
+positional arguments:
+  credential            the name of the credential to store
+  value                 the value of the credential to store or, if beginning
+                        with the "@" character, the filename of the file
+                        containing the value
+  context               encryption context key/value pairs associated with the
+                        credential in the form of "key=value"
 
-    optional arguments:
-      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                            README for more information. Defaults to
-                            alias/credstash
-      -v VERSION, --version VERSION
-                            Put a specific version of the credential (update the
-                            credential; defaults to version `1`).
+optional arguments:
+  -h, --help            show this help message and exit
+  -k KEY, --key KEY     the KMS key-id of the master key to use. See the
+                        README for more information. Defaults to
+                        alias/credstash
+  -v VERSION, --version VERSION
+                        Put a specific version of the credential (update the
+                        credential; defaults to version `1`).
+  -a, --autoversion     Automatically increment the version of the credential
+                        to be stored. This option causes the `-v` flag to be
+                        ignored. (This option will fail if the currently
+                        stored version is not numeric.)
 
 setup
     usage: credstash setup [-h] [-r REGION] [-t TABLE]
