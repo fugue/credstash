@@ -393,6 +393,12 @@ def main():
                                  help="Put a specific version of the "
                                  "credential (update the credential; "
                                  "defaults to version `1`).")
+    parsers[action].add_argument("-a", "--autoversion", action="store_true",
+                                help="Automatically increment the version of "
+                                "the credential to be stored. This option "
+                                "causes the `-v` flag to be ignored. "
+                                "(This option assumes that the version "
+                                "currently stored is numeric.)")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
@@ -422,8 +428,19 @@ def main():
             else:
                 return
         if args.action == "put":
+            if args.autoversion:
+                latestVersion = getHighestVersion(args.credential, region,
+                                                  args.table)
+                try:
+                    version = str(int(latestVersion) + 1)
+                except ValueError:
+                    printStdErr("Can not autoincrement version. The current "
+                                "version: %s is not an int" % latestVersion)
+                    return
+            else:
+                version = args.version
             try:
-                if putSecret(args.credential, args.value, args.version,
+                if putSecret(args.credential, args.value, version,
                              kms_key=args.key, region=region, table=args.table,
                              context=args.context):
                     print("{0} has been stored".format(args.credential))
