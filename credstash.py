@@ -397,8 +397,8 @@ def main():
                                 help="Automatically increment the version of "
                                 "the credential to be stored. This option "
                                 "causes the `-v` flag to be ignored. "
-                                "(This option assumes that the version "
-                                "currently stored is numeric.)")
+                                "(This option will fail if the currently stored "
+                                "version is not numeric.)")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
