@@ -15,7 +15,6 @@
 
 import argparse
 import boto.dynamodb2
-import boto.kms
 import csv
 import json
 import operator
@@ -25,6 +24,7 @@ import sys
 import time
 import re
 import boto3
+import botocore.exceptions
 
 try:
     from StringIO import StringIO
@@ -43,7 +43,6 @@ from boto.dynamodb2.exceptions import ItemNotFound
 from boto.dynamodb2.fields import HashKey, RangeKey
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import STRING
-from boto.kms.exceptions import InvalidCiphertextException
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Hash.HMAC import HMAC
@@ -234,15 +233,18 @@ def getSecret(name, version="", region="us-east-1",
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
         kms_response = kms.decrypt(CiphertextBlob=b64decode(material['key']), EncryptionContext=context)
-    except InvalidCiphertextException:
-        if context is None:
-            msg = ("Could not decrypt hmac key with KMS. The credential may "
-                   "require that an encryption context be provided to decrypt "
-                   "it.")
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "InvalidCiphertextException":
+            if context is None:
+                msg = ("Could not decrypt hmac key with KMS. The credential may "
+                       "require that an encryption context be provided to decrypt "
+                       "it.")
+            else:
+                msg = ("Could not decrypt hmac key with KMS. The encryption "
+                       "context provided may not match the one used when the "
+                       "credential was stored.")
         else:
-            msg = ("Could not decrypt hmac key with KMS. The encryption "
-                   "context provided may not match the one used when the "
-                   "credential was stored.")
+            msg = "Decryption error %s" % e
         raise KmsError(msg)
     except Exception as e:
         raise KmsError("Decryption error %s" % e)
@@ -507,4 +509,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
