@@ -37,6 +37,7 @@ except ImportError:
     NO_YAML = True
 
 from base64 import b64encode, b64decode
+from boto3.dynamodb.conditions import Attr
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Hash.HMAC import HMAC
@@ -191,7 +192,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
 
-    return secrets.put_item(Item=data)
+    return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
 
 def getAllSecrets(version="", region="us-east-1",
@@ -483,13 +484,14 @@ def main():
                     print("{0} has been stored".format(args.credential))
             except KmsError as e:
                 printStdErr(e)
-            except ConditionalCheckFailedException:
-                latestVersion = getHighestVersion(args.credential, region,
-                                                  args.table)
-                printStdErr("%s version %s is already in the credential store."
-                            "Use the -v flag to specify a new version" %
-                            (args.credential, latestVersion))
-            return
+            except botocore.exceptions.ClientError as e:
+                if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                    latestVersion = getHighestVersion(args.credential, region,
+                                                      args.table)
+                    printStdErr("%s version %s is already in the credential store. "
+                                "Use the -v flag to specify a new version" %
+                                (args.credential, latestVersion))
+                return
         if args.action == "get":
             try:
                 if WILDCARD_CHAR in args.credential:
