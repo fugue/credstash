@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import boto3
 import credstash
 import copy
