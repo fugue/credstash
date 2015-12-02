@@ -44,6 +44,7 @@ from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
 DEFAULT_REGION = "us-east-1"
+PAD_LEN = 19 # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
 
@@ -124,6 +125,14 @@ def csv_dump(dictionary):
     return csvfile.getvalue()
 
 
+def paddedInt(i):
+    '''
+    return a string that contains `i`, left-padded with 0's up to PAD_LEN digits
+    '''
+    i_str = str(i)
+    pad = PAD_LEN - len(i_str)
+    return (pad * "0") + i_str
+
 def getHighestVersion(name, region="us-east-1", table="credential-store"):
     '''
     Return the highest version of `name` in the table
@@ -187,7 +196,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
     data = {}
     data['name'] = name
-    data['version'] = version if version != "" else "1"
+    data['version'] = version if version != "" else paddedInt(1)
     data['key'] = b64encode(wrapped_key).decode('utf-8')
     data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
@@ -470,7 +479,7 @@ def main():
                 latestVersion = getHighestVersion(args.credential, region,
                                                   args.table)
                 try:
-                    version = str(int(latestVersion) + 1)
+                    version = paddedInt(int(latestVersion) + 1)
                 except ValueError:
                     printStdErr("Can not autoincrement version. The current "
                                 "version: %s is not an int" % latestVersion)
