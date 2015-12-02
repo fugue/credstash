@@ -3,6 +3,14 @@ import credstash
 import copy
 
 
+def isInt(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
+
 def updateVersions(region="us-east-1", table="credential-store"):
     '''
     do a full-table scan of the credential-store,
@@ -17,14 +25,13 @@ def updateVersions(region="us-east-1", table="credential-store"):
     items = response["Items"]
 
     for old_item in items:
-        try:
-            int(old_item['version'])
+        if isInt(old_item['version']):
             new_item = copy.copy(old_item)
             new_item['version'] = credstash.paddedInt(new_item['version'])
             if new_item['version'] != old_item['version']:
                 secrets.put_item(Item=new_item)
                 secrets.delete_item(Key={'name': old_item['name'], 'version': old_item['version']})
-        except:
+        else:
             print "Skipping item: %s, %s" % (old_item['name'], old_item['version'])
 
 
