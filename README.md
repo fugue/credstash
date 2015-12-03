@@ -75,6 +75,23 @@ You can specify the region in which `credstash` should operate by using the `-r`
 
 Once credentials are in place, run `credstash setup`. This will create the DDB table needed for credential storage.
 
+### Working with multiple AWS accounts (profiles)
+
+If you need to work with multiple AWS accounts, an easy thing to do is to set up multiple profiles in your `~/.aws/credentials` file. For example,
+
+```
+[dev]
+aws_access_key_id = AKIDEXAMPLEASDFASDF
+aws_secret_access_key = SKIDEXAMPLE2103429812039423
+[prod]
+aws_access_key_id= AKIDEXAMPLEASDFASDF
+aws_secret_access_key= SKIDEXAMPLE2103429812039423
+```
+
+Then, by setting the `AWS_PROFILE` environment variable to the name of the profile, (dev or prod, in this case), you can point credstash at the appropriate account.
+
+See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standardized-Way-to-Manage-Credentials-in-the-AWS-SDKs for more information.
+
 ## Usage
 ```
 usage: credstash [-h] [-r REGION] [-t TABLE] {delete,get,getall,list,put,setup} ...
