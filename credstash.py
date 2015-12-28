@@ -133,7 +133,7 @@ def paddedInt(i):
     pad = PAD_LEN - len(i_str)
     return (pad * "0") + i_str
 
-def getHighestVersion(name, region="us-east-1", table="credential-store"):
+def getHighestVersion(name, region=None, table="credential-store"):
     '''
     Return the highest version of `name` in the table
     '''
@@ -151,7 +151,7 @@ def getHighestVersion(name, region="us-east-1", table="credential-store"):
     return response["Items"][0]["version"]
 
 
-def listSecrets(region="us-east-1", table="credential-store"):
+def listSecrets(region=None, table="credential-store"):
     '''
     do a full-table scan of the credential-store,
     and return the names and versions of every credential
@@ -165,7 +165,7 @@ def listSecrets(region="us-east-1", table="credential-store"):
 
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
-              region="us-east-1", table="credential-store", context=None):
+              region=None, table="credential-store", context=None):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -204,7 +204,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
 
-def getAllSecrets(version="", region="us-east-1",
+def getAllSecrets(version="", region=None,
                   table="credential-store", context=None):
     '''
     fetch and decrypt all secrets
@@ -223,7 +223,7 @@ def getAllSecrets(version="", region="us-east-1",
     return output
 
 
-def getSecret(name, version="", region="us-east-1",
+def getSecret(name, version="", region=None,
               table="credential-store", context=None):
     '''
     fetch and decrypt the secret called `name`
@@ -281,7 +281,7 @@ def getSecret(name, version="", region="us-east-1",
     return plaintext
 
 
-def deleteSecrets(name, region="us-east-1", table="credential-store"):
+def deleteSecrets(name, region=None, table="credential-store"):
     dynamodb = boto3.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
@@ -294,7 +294,7 @@ def deleteSecrets(name, region="us-east-1", table="credential-store"):
         secrets.delete_item(Key=secret)
 
 
-def createDdbTable(region="us-east-1", table="credential-store"):
+def createDdbTable(region=None, table="credential-store"):
     '''
     create the secret store table in DDB in the specified region
     '''
@@ -350,7 +350,9 @@ def main():
                                   "If a region is not specified, credstash "
                                   "will use the value of the "
                                   "AWS_DEFAULT_REGION env variable, "
-                                  "or if that is not set, us-east-1")
+                                  "or if that is not set, the value in "
+                                  "`~/.aws/config`. As a last resort, "
+                                  "it will use us-east-1")
     parsers['super'].add_argument("-t", "--table", default="credential-store",
                                   help="DynamoDB table to use for "
                                   "credential storage")
@@ -455,9 +457,12 @@ def main():
 
     args = parsers['super'].parse_args()
 
-    region = os.getenv(
-        "AWS_DEFAULT_REGION", DEFAULT_REGION) if not args.region \
-        else args.region
+    try:
+        region = args.region
+        boto3.resource('dynamodb')
+    except botocore.exceptions.NoRegionError:
+        region = DEFAULT_REGION
+
     if "action" in vars(args):
         if args.action == "delete":
             deleteSecrets(args.credential, region=region, table=args.table)
