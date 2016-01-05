@@ -133,11 +133,14 @@ def paddedInt(i):
     pad = PAD_LEN - len(i_str)
     return (pad * "0") + i_str
 
-def getHighestVersion(name, region=None, table="credential-store"):
+def getHighestVersion(name, region=None, table="credential-store",
+                      profile_name=None):
     '''
     Return the highest version of `name` in the table
     '''
-    dynamodb = boto3.resource('dynamodb', region_name=region)
+    session = boto3.Session(profile_name=profile_name)
+
+    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     response = secrets.query(Limit=1,
@@ -151,12 +154,14 @@ def getHighestVersion(name, region=None, table="credential-store"):
     return response["Items"][0]["version"]
 
 
-def listSecrets(region=None, table="credential-store"):
+def listSecrets(region=None, table="credential-store", profile_name=None):
     '''
     do a full-table scan of the credential-store,
     and return the names and versions of every credential
     '''
-    dynamodb = boto3.resource('dynamodb', region_name=region)
+    session = boto3.Session(profile_name=profile_name)
+
+    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     response = secrets.scan(ProjectionExpression="#N, version",
@@ -165,14 +170,16 @@ def listSecrets(region=None, table="credential-store"):
 
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
-              region=None, table="credential-store", context=None):
+              region=None, table="credential-store", context=None,
+              profile_name=None):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
     if not context:
         context = {}
-    kms = boto3.client('kms', region_name=region)
+    session = boto3.Session(profile_name=profile_name)
+    kms = session.client('kms', region_name=region)
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
     try:
@@ -191,7 +198,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     hmac = HMAC(hmac_key, msg=c_text, digestmod=SHA256)
     b64hmac = hmac.hexdigest()
 
-    dynamodb = boto3.resource('dynamodb', region_name=region)
+    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     data = {}
@@ -205,12 +212,12 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
 
 def getAllSecrets(version="", region=None,
-                  table="credential-store", context=None):
+                  table="credential-store", context=None, profile_name=None):
     '''
     fetch and decrypt all secrets
     '''
     output = {}
-    secrets = listSecrets(region, table)
+    secrets = listSecrets(region, table, profile_name=profile_name)
     for credential in set([x["name"] for x in secrets]):
         try:
             output[credential] = getSecret(credential,
@@ -224,14 +231,15 @@ def getAllSecrets(version="", region=None,
 
 
 def getSecret(name, version="", region=None,
-              table="credential-store", context=None):
+              table="credential-store", context=None, profile_name=None):
     '''
     fetch and decrypt the secret called `name`
     '''
     if not context:
         context = {}
 
-    dynamodb = boto3.resource('dynamodb', region_name=region)
+    session = boto3.Session(profile_name=profile_name)
+    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     if version == "":
@@ -249,7 +257,7 @@ def getSecret(name, version="", region=None,
             raise ItemNotFound("Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
 
-    kms = boto3.client('kms', region_name=region)
+    kms = session.client('kms', region_name=region)
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
         kms_response = kms.decrypt(CiphertextBlob=b64decode(material['key']), EncryptionContext=context)
@@ -281,8 +289,10 @@ def getSecret(name, version="", region=None,
     return plaintext
 
 
-def deleteSecrets(name, region=None, table="credential-store"):
-    dynamodb = boto3.resource('dynamodb', region_name=region)
+def deleteSecrets(name, region=None, table="credential-store",
+                  profile_name=None):
+    session = boto3.Session(profile_name=profile_name)
+    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     response = secrets.scan(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
@@ -294,11 +304,12 @@ def deleteSecrets(name, region=None, table="credential-store"):
         secrets.delete_item(Key=secret)
 
 
-def createDdbTable(region=None, table="credential-store"):
+def createDdbTable(region=None, table="credential-store", profile_name=None):
     '''
     create the secret store table in DDB in the specified region
     '''
-    dynamodb = boto3.resource("dynamodb", region_name=region)
+    session = boto3.Session(profile_name=profile_name)
+    dynamodb = session.resource("dynamodb", region_name=region)
     if table in (t.name for t in dynamodb.tables.all()):
         print("Credential Store table already exists")
         return
@@ -333,7 +344,7 @@ def createDdbTable(region=None, table="credential-store"):
     )
 
     print("Waiting for table to be created...")
-    client = boto3.client("dynamodb", region_name=region)
+    client = session.client("dynamodb", region_name=region)
     client.get_waiter("table_exists").wait(TableName=table)
 
     print("Table has been created. "
