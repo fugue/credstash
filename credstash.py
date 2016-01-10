@@ -80,6 +80,9 @@ def printStdErr(s):
     sys.stderr.write(str(s))
     sys.stderr.write("\n")
 
+def fatal(s):
+    printStdErr(s)
+    sys.exit(1)
 
 def key_value_pair(string):
     output = string.split('=')
@@ -486,9 +489,8 @@ def main():
                 try:
                     version = paddedInt(int(latestVersion) + 1)
                 except ValueError:
-                    printStdErr("Can not autoincrement version. The current "
+                    fatal("Can not autoincrement version. The current "
                                 "version: %s is not an int" % latestVersion)
-                    return
             else:
                 version = args.version
             try:
@@ -497,14 +499,14 @@ def main():
                              context=args.context):
                     print("{0} has been stored".format(args.credential))
             except KmsError as e:
-                printStdErr(e)
+                fatal(e)
             except botocore.exceptions.ClientError as e:
                 if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                     latestVersion = getHighestVersion(args.credential, region,
                                                       args.table)
-                    printStdErr("%s version %s is already in the credential store. "
-                                "Use the -v flag to specify a new version" %
-                                (args.credential, latestVersion))
+                    fatal("%s version %s is already in the credential store. "
+                          "Use the -v flag to specify a new version" %
+                          (args.credential, latestVersion))
                 return
         if args.action == "get":
             try:
@@ -528,11 +530,11 @@ def main():
                     if not args.noline:
                         sys.stdout.write("\n")
             except ItemNotFound as e:
-                printStdErr(e)
+                fatal(e)
             except KmsError as e:
-                printStdErr(e)
+                fatal(e)
             except IntegrityError as e:
-                printStdErr(e)
+                fatal(e)
             return
         if args.action == "getall":
             secrets = getAllSecrets(args.version,
