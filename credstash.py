@@ -507,7 +507,8 @@ def main():
                     fatal("%s version %s is already in the credential store. "
                           "Use the -v flag to specify a new version" %
                           (args.credential, latestVersion))
-                return
+                else:
+                    fatal(e)
         if args.action == "get":
             try:
                 if WILDCARD_CHAR in args.credential:
