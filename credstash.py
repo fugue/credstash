@@ -473,7 +473,7 @@ def main():
 
     try:
         region = args.region
-        boto3.resource('dynamodb')
+        boto3.resource('dynamodb', region_name=region)
     except botocore.exceptions.NoRegionError:
         region = DEFAULT_REGION
 
