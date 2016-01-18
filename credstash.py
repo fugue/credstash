@@ -227,7 +227,8 @@ def getAllSecrets(version="", region=None,
                                            version,
                                            region,
                                            table,
-                                           context)
+                                           context,
+                                           profile_name=profile_name)
         except:
             pass
     return output
