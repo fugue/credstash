@@ -227,7 +227,8 @@ def getAllSecrets(version="", region=None,
                                            version,
                                            region,
                                            table,
-                                           context)
+                                           context,
+                                           profile_name=profile_name)
         except:
             pass
     return output
@@ -370,6 +371,9 @@ def main():
     parsers['super'].add_argument("-t", "--table", default="credential-store",
                                   help="DynamoDB table to use for "
                                   "credential storage")
+    parsers['super'].add_argument("-p", "--profile", default=None,
+                                  help="Boto config profile to use when "
+                                  "connecting to AWS")
     subparsers = parsers['super'].add_subparsers(help='Try commands like '
                                                  '"{name} get -h" or "{name}'
                                                  'put --help" to get each'
@@ -473,16 +477,19 @@ def main():
 
     try:
         region = args.region
-        boto3.resource('dynamodb', region_name=region)
+        session = boto3.Session(profile_name=args.profile)
+        session.resource('dynamodb', region_name=region)
     except botocore.exceptions.NoRegionError:
         region = DEFAULT_REGION
 
     if "action" in vars(args):
         if args.action == "delete":
-            deleteSecrets(args.credential, region=region, table=args.table)
+            deleteSecrets(args.credential, region=region, table=args.table,
+                          profile_name=args.profile)
             return
         if args.action == "list":
-            credential_list = listSecrets(region=region, table=args.table)
+            credential_list = listSecrets(region=region, table=args.table,
+                                          profile_name=args.profile)
             if credential_list:
                 # print list of credential names and versions,
                 # sorted by name and then by version
@@ -496,7 +503,8 @@ def main():
         if args.action == "put":
             if args.autoversion:
                 latestVersion = getHighestVersion(args.credential, region,
-                                                  args.table)
+                                                  args.table,
+                                                  profile_name=args.profile)
                 try:
                     version = paddedInt(int(latestVersion) + 1)
                 except ValueError:
@@ -507,14 +515,15 @@ def main():
             try:
                 if putSecret(args.credential, args.value, version,
                              kms_key=args.key, region=region, table=args.table,
-                             context=args.context):
+                             context=args.context, profile_name=args.profile):
                     print("{0} has been stored".format(args.credential))
             except KmsError as e:
                 fatal(e)
             except botocore.exceptions.ClientError as e:
                 if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                     latestVersion = getHighestVersion(args.credential, region,
-                                                      args.table)
+                                                      args.table,
+                                                      profile_name=args.profile)
                     fatal("%s version %s is already in the credential store. "
                           "Use the -v flag to specify a new version" %
                           (args.credential, latestVersion))
@@ -527,18 +536,21 @@ def main():
                                             [x["name"]
                                              for x
                                              in listSecrets(region=region,
-                                                            table=args.table)])
+                                                            table=args.table,
+                                                            profile_name=args.profile)])
                     print(json.dumps(dict((name,
                                           getSecret(name,
                                                     args.version,
                                                     region=region,
                                                     table=args.table,
-                                                    context=args.context))
+                                                    context=args.context,
+                                                    profile_name=args.profile))
                                           for name in names)))
                 else:
                     sys.stdout.write(getSecret(args.credential, args.version,
                                                region=region, table=args.table,
-                                               context=args.context))
+                                               context=args.context,
+                                               profile_name=args.profile))
                     if not args.noline:
                         sys.stdout.write("\n")
             except ItemNotFound as e:
@@ -552,7 +564,8 @@ def main():
             secrets = getAllSecrets(args.version,
                                     region=region,
                                     table=args.table,
-                                    context=args.context)
+                                    context=args.context,
+                                    profile_name=args.profile)
             if args.format == "json":
                 output_func = json.dumps
                 output_args = {"sort_keys": True,
@@ -567,7 +580,8 @@ def main():
             print(output_func(secrets, **output_args))
             return
         if args.action == "setup":
-            createDdbTable(region=region, table=args.table)
+            createDdbTable(region=region, table=args.table,
+                           profile_name=args.profile)
             return
     else:
         parsers['super'].print_help()
