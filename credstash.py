@@ -107,7 +107,13 @@ def value_or_filename(string):
     # If an empty string is passes in, just return an empty string
     if string == "":
         return ""
-    if string[0] == "@":
+
+    if string == '-':
+        try:
+            return sys.stdin.read()
+        except KeyboardInterrupt:
+            raise argparse.ArgumentTypeError("Unable to read value from stdin")
+    elif string[0] == "@":
         filename = string[1:]
         try:
             with open(os.path.expanduser(filename)) as f:
@@ -446,7 +452,8 @@ def main():
                                  help="the value of the credential to store "
                                  "or, if beginning with the \"@\" character, "
                                  "the filename of the file containing "
-                                 "the value", default="")
+                                 "the value, or pass \"-\" to read the value "
+                                 "from stdin", default="")
     parsers[action].add_argument("context", type=key_value_pair,
                                  action=KeyValueToDictionary, nargs='*',
                                  help="encryption context key/value pairs "
