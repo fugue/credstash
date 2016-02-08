@@ -373,7 +373,7 @@ def main():
                                   "AWS_DEFAULT_REGION env variable, "
                                   "or if that is not set, the value in "
                                   "`~/.aws/config`. As a last resort, "
-                                  "it will use us-east-1")
+                                  "it will use " + DEFAULT_REGION)
     parsers['super'].add_argument("-t", "--table", default="credential-store",
                                   help="DynamoDB table to use for "
                                   "credential storage")
