@@ -487,7 +487,7 @@ def main():
         session = boto3.Session(profile_name=args.profile)
         session.resource('dynamodb', region_name=region)
     except botocore.exceptions.NoRegionError:
-        if not os.environ.has_key("AWS_DEFAULT_REGION"):
+        if not 'AWS_DEFAULT_REGION' in os.environ:
             region = DEFAULT_REGION
 
     if "action" in vars(args):
