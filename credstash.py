@@ -495,11 +495,11 @@ def main():
                                  "credential (update the credential; "
                                  "defaults to version `1`).")
     parsers[action].add_argument("-a", "--autoversion", action="store_true",
-                                help="Automatically increment the version of "
-                                "the credential to be stored. This option "
-                                "causes the `-v` flag to be ignored. "
-                                "(This option will fail if the currently stored "
-                                "version is not numeric.)")
+                                 help="Automatically increment the version of "
+                                 "the credential to be stored. This option "
+                                 "causes the `-v` flag to be ignored. "
+                                 "(This option will fail if the currently stored "
+                                 "version is not numeric.)")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
