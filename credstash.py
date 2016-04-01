@@ -144,11 +144,11 @@ def paddedInt(i):
 
 
 def getHighestVersion(name, region=None, table="credential-store",
-                      profile_name=None, **kwargs):
+                      **kwargs):
     '''
     Return the highest version of `name` in the table
     '''
-    session = get_session(profile_name=profile_name, **kwargs)
+    session = get_session(**kwargs)
 
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
@@ -164,13 +164,12 @@ def getHighestVersion(name, region=None, table="credential-store",
     return response["Items"][0]["version"]
 
 
-def listSecrets(region=None, table="credential-store", profile_name=None,
-                **kwargs):
+def listSecrets(region=None, table="credential-store", **kwargs):
     '''
     do a full-table scan of the credential-store,
     and return the names and versions of every credential
     '''
-    session = get_session(profile_name=profile_name, **kwargs)
+    session = get_session(**kwargs)
 
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
@@ -182,14 +181,14 @@ def listSecrets(region=None, table="credential-store", profile_name=None,
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              profile_name=None, **kwargs):
+              **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
     if not context:
         context = {}
-    session = get_session(profile_name=profile_name, **kwargs)
+    session = get_session(**kwargs)
     kms = session.client('kms', region_name=region)
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
@@ -223,12 +222,12 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
 
 def getAllSecrets(version="", region=None, table="credential-store",
-                  context=None, profile_name=None, **kwargs):
+                  context=None, **kwargs):
     '''
     fetch and decrypt all secrets
     '''
     output = {}
-    secrets = listSecrets(region, table, profile_name=profile_name, **kwargs)
+    secrets = listSecrets(region, table, **kwargs)
     for credential in set([x["name"] for x in secrets]):
         try:
             output[credential] = getSecret(credential,
@@ -236,7 +235,7 @@ def getAllSecrets(version="", region=None, table="credential-store",
                                            region,
                                            table,
                                            context,
-                                           profile_name=profile_name, **kwargs)
+                                           **kwargs)
         except:
             pass
     return output
@@ -244,14 +243,14 @@ def getAllSecrets(version="", region=None, table="credential-store",
 
 def getSecret(name, version="", region=None,
               table="credential-store", context=None,
-              profile_name=None, **kwargs):
+              **kwargs):
     '''
     fetch and decrypt the secret called `name`
     '''
     if not context:
         context = {}
 
-    session = get_session(profile_name=profile_name, **kwargs)
+    session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
@@ -303,8 +302,8 @@ def getSecret(name, version="", region=None,
 
 
 def deleteSecrets(name, region=None, table="credential-store",
-                  profile_name=None, **kwargs):
-    session = get_session(profile_name=profile_name, **kwargs)
+                  **kwargs):
+    session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
@@ -317,12 +316,11 @@ def deleteSecrets(name, region=None, table="credential-store",
         secrets.delete_item(Key=secret)
 
 
-def createDdbTable(region=None, table="credential-store", profile_name=None,
-                   **kwargs):
+def createDdbTable(region=None, table="credential-store", **kwargs):
     '''
     create the secret store table in DDB in the specified region
     '''
-    session = get_session(profile_name=profile_name, **kwargs)
+    session = get_session(**kwargs)
     dynamodb = session.resource("dynamodb", region_name=region)
     if table in (t.name for t in dynamodb.tables.all()):
         print("Credential Store table already exists")
@@ -531,13 +529,11 @@ def main():
             deleteSecrets(args.credential,
                           region=region,
                           table=args.table,
-                          profile_name=args.profile,
                           **session_params)
             return
         if args.action == "list":
             credential_list = listSecrets(region=region,
                                           table=args.table,
-                                          profile_name=args.profile,
                                           **session_params)
             if credential_list:
                 # print list of credential names and versions,
@@ -554,7 +550,6 @@ def main():
                 latestVersion = getHighestVersion(args.credential,
                                                   region,
                                                   args.table,
-                                                  profile_name=args.profile,
                                                   **session_params)
                 try:
                     version = paddedInt(int(latestVersion) + 1)
@@ -566,7 +561,7 @@ def main():
             try:
                 if putSecret(args.credential, args.value, version,
                              kms_key=args.key, region=region, table=args.table,
-                             context=args.context, profile_name=args.profile,
+                             context=args.context,
                              **session_params):
                     print("{0} has been stored".format(args.credential))
             except KmsError as e:
@@ -575,7 +570,6 @@ def main():
                 if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                     latestVersion = getHighestVersion(args.credential, region,
                                                       args.table,
-                                                      profile_name=args.profile,
                                                       **session_params)
                     fatal("%s version %s is already in the credential store. "
                           "Use the -v flag to specify a new version" %
@@ -590,7 +584,6 @@ def main():
                                              for x
                                              in listSecrets(region=region,
                                                             table=args.table,
-                                                            profile_name=args.profile,
                                                             **session_params)])
                     print(json.dumps(dict((name,
                                           getSecret(name,
@@ -598,14 +591,12 @@ def main():
                                                     region=region,
                                                     table=args.table,
                                                     context=args.context,
-                                                    profile_name=args.profile,
                                                     **session_params))
                                           for name in names)))
                 else:
                     sys.stdout.write(getSecret(args.credential, args.version,
                                                region=region, table=args.table,
                                                context=args.context,
-                                               profile_name=args.profile,
                                                **session_params))
                     if not args.noline:
                         sys.stdout.write("\n")
@@ -621,7 +612,6 @@ def main():
                                     region=region,
                                     table=args.table,
                                     context=args.context,
-                                    profile_name=args.profile,
                                     **session_params)
             if args.format == "json":
                 output_func = json.dumps
@@ -638,7 +628,6 @@ def main():
             return
         if args.action == "setup":
             createDdbTable(region=region, table=args.table,
-                           profile_name=args.profile,
                            **session_params)
             return
     else:
