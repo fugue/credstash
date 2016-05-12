@@ -19,9 +19,6 @@ class TestKeyValuePairExtraction(unittest.TestCase):
     def test_key_value_pair_has_one_equals_with_values(self):
         self.assertEqual(key_value_pair("key1=value1"), ["key1","value1"])
 
-    def test_key_value_pair_has_one_equals_with_values(self):
-        self.assertEqual(key_value_pair("key1=value1"), ["key1","value1"])
-
 
 class TestExpandingWildcard(unittest.TestCase):
     secrets_set = ["a", "b", "ab", " a", " b", "ba", "abc", "a[anyvalue]z", "a b", "aabb"]
