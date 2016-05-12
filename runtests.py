@@ -26,7 +26,7 @@ class TestKeyValuePairExtraction(unittest.TestCase):
 
 class TestExpandingWildcard(unittest.TestCase):
     secrets_set = ["a", "b", "ab", " a", " b", "ba", "abc", "a[anyvalue]z", "a b", "aabb"]
-    secrets_set2 = ["QQQ", "QVQQ", "QVQVQ", "QQ", "Q", "QQVQ"]
+    secrets_set2 = ["QQQ", "QVQQ", "QVQVQ", "QQ", "Q", "QQVQ", "QrEQrE", "QErQE"]
 
     def test_start_regex(self):
         self.assertEqual(expand_wildcard("a", self.secrets_set), ["a"])
@@ -43,8 +43,11 @@ class TestExpandingWildcard(unittest.TestCase):
     def test_one_wild_card_with_many_matches(self):
         self.assertEqual(expand_wildcard("a*b", self.secrets_set), ["ab", "a b", "aabb"])
 
-    def test_two_wild_card_with_many_matches(self):
+    def test_two_wild_cards_with_many_matches(self):
         self.assertEqual(expand_wildcard("Q*Q*Q", self.secrets_set2), ["QQQ", "QVQQ", "QVQVQ", "QQVQ"])
+
+    def test_three_wild_card_with_many_matches(self):
+        self.assertEqual(expand_wildcard("Q*E*Q*E", self.secrets_set2), ["QrEQrE", "QErQE"])
 
 class TestPadLeft(unittest.TestCase):
     def test_zero(self):
