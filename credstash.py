@@ -163,7 +163,17 @@ def getHighestVersion(name, region=None, table="credential-store",
         return 0
     return response["Items"][0]["version"]
 
+def clean_fail(func):
+    def func_wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except botocore.exceptions.ClientError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(1)
+    return func_wrapper
 
+
+@clean_fail
 def listSecrets(region=None, table="credential-store", **kwargs):
     '''
     do a full-table scan of the credential-store,
@@ -385,7 +395,33 @@ def get_assumerole_credentials(arn):
                 aws_session_token=credentials['SessionToken'])
 
 
-def main():
+def list_credentials(region, args, **session_params):
+    credential_list = listSecrets(region=region,
+                                  table=args.table,
+                                  **session_params)
+    if credential_list:
+        # print list of credential names and versions,
+        # sorted by name and then by version
+        max_len = max([len(x["name"]) for x in credential_list])
+        for cred in sorted(credential_list,
+                           key=operator.itemgetter("name", "version")):
+            print("{0:{1}} -- version {2:>}".format(
+                cred["name"], max_len, cred["version"]))
+    else:
+        return
+
+
+def get_session_params(profile, arn):
+    params = {}
+    if profile is None and arn:
+        params = get_assumerole_credentials(arn)
+    elif profile:
+        params = dict(profile_name=profile)
+    return params
+
+
+def get_parser():
+    """get the parsers dict"""
     parsers = {}
     parsers['super'] = argparse.ArgumentParser(
         description="A credential/secret storage system")
@@ -506,15 +542,14 @@ def main():
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
     parsers[action].set_defaults(action=action)
+    return parsers
 
+def main():
+    parsers = get_parser()
     args = parsers['super'].parse_args()
 
     # Check for assume role and set  session params
-    session_params = {}
-    if args.profile is None and args.arn:
-        session_params = get_assumerole_credentials(args.arn)
-    elif args.profile:
-        session_params = dict(profile_name=args.profile)
+    session_params = get_session_params(args.profile, args.arn)
 
     try:
         region = args.region
@@ -532,19 +567,8 @@ def main():
                           **session_params)
             return
         if args.action == "list":
-            credential_list = listSecrets(region=region,
-                                          table=args.table,
-                                          **session_params)
-            if credential_list:
-                # print list of credential names and versions,
-                # sorted by name and then by version
-                max_len = max([len(x["name"]) for x in credential_list])
-                for cred in sorted(credential_list,
-                                   key=operator.itemgetter("name", "version")):
-                    print("{0:{1}} -- version {2:>}".format(
-                        cred["name"], max_len, cred["version"]))
-            else:
-                return
+            list_credentials(region, args, **session_params)
+            return
         if args.action == "put":
             if args.autoversion:
                 latestVersion = getHighestVersion(args.credential,
