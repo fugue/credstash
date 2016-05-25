@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import print_function
 
 import argparse
 import csv
@@ -42,6 +43,7 @@ from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
+
 
 DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19 # number of digits in sys.maxint
@@ -164,6 +166,12 @@ def getHighestVersion(name, region=None, table="credential-store",
     return response["Items"][0]["version"]
 
 def clean_fail(func):
+    '''
+    A decorator to cleanly exit on a failed call to AWS.
+    catch a `botocore.exceptions.ClientError` raised from an action.
+    This sort of error is raised if you are targeting a region that
+    isn't set up (see, `credstash setup`.
+    '''
     def func_wrapper(*args, **kwargs):
         try:
             func(*args, **kwargs)
