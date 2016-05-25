@@ -174,14 +174,13 @@ def clean_fail(func):
     '''
     def func_wrapper(*args, **kwargs):
         try:
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
         except botocore.exceptions.ClientError as e:
             print(str(e), file=sys.stderr)
             sys.exit(1)
     return func_wrapper
 
 
-@clean_fail
 def listSecrets(region=None, table="credential-store", **kwargs):
     '''
     do a full-table scan of the credential-store,
@@ -239,7 +238,6 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
 
-@clean_fail
 def getAllSecrets(version="", region=None, table="credential-store",
                   context=None, **kwargs):
     '''
@@ -492,6 +490,7 @@ def get_assumerole_credentials(arn):
                 aws_session_token=credentials['SessionToken'])
 
 
+@clean_fail
 def list_credentials(region, args, **session_params):
     credential_list = listSecrets(region=region,
                                   table=args.table,
