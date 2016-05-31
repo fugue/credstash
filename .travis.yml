@@ -8,4 +8,4 @@ python:
   - "pypy"
 install:
   - pip install -r requirements.txt
-script: python runtests.py
+script: nosetests tests/*.py
