@@ -183,7 +183,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              encryption="SHA256", **kwargs):
+              digest="SHA256", **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -207,7 +207,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
     c_text = encryptor.encrypt(secret)
     # compute an HMAC using the hmac key and the ciphertext
-    hmac = HMAC(hmac_key, msg=c_text, digestmod=eval(encryption))
+    hmac = HMAC(hmac_key, msg=c_text, digestmod=eval(digest))
     b64hmac = hmac.hexdigest()
 
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -219,7 +219,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     data['key'] = b64encode(wrapped_key).decode('utf-8')
     data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
-    data['encryption'] = encryption
+    data['digest'] = digest
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
@@ -291,16 +291,16 @@ def getSecret(name, version="", region=None,
         raise KmsError(msg)
     except Exception as e:
         raise KmsError("Decryption error %s" % e)
-    # Check for the existence of an encryption value
-    if 'encryption' in material:
-        encryption = material['encryption']
+    # Check for the existence of a digest value
+    if 'digest' in material:
+        digest = material['digest']
     else:
-        encryption = 'SHA256'
+        digest = 'SHA256'
 
     key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
     hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=eval(encryption))
+                digestmod=eval(digest))
     if hmac.hexdigest() != material['hmac']:
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
                              % name)
@@ -509,11 +509,10 @@ def main():
                                  "causes the `-v` flag to be ignored. "
                                  "(This option will fail if the currently stored "
                                  "version is not numeric.)")
-    parsers[action].add_argument("-e", "--encryption", default="SHA256",
+    parsers[action].add_argument("-d", "--digest", default="SHA256",
                                  choices=HASHING_ALGORITHMS,
                                  help="the hashing algorithm used to "
-                                 "to encrypt the data. See the README "
-                                 "for more information. Defaults to SHA256")
+                                 "to encrypt the data. Defaults to SHA256")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
@@ -575,7 +574,7 @@ def main():
             try:
                 if putSecret(args.credential, args.value, version,
                              kms_key=args.key, region=region, table=args.table,
-                             context=args.context, encryption=args.encryption,
+                             context=args.context, digest=args.digest,
                              **session_params):
                     print("{0} has been stored".format(args.credential))
             except KmsError as e:
