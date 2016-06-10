@@ -39,11 +39,13 @@ except ImportError:
 from base64 import b64encode, b64decode
 from boto3.dynamodb.conditions import Attr
 from Crypto.Cipher import AES
-from Crypto.Hash import SHA256
+from Crypto.Hash import *
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
 DEFAULT_REGION = "us-east-1"
+HASHING_ALGORITHMS = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512',
+                      'MD2', 'MD4', 'MD5', 'RIPEMD']
 PAD_LEN = 19 # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
@@ -181,7 +183,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              **kwargs):
+              encryption="SHA256", **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -205,7 +207,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
     c_text = encryptor.encrypt(secret)
     # compute an HMAC using the hmac key and the ciphertext
-    hmac = HMAC(hmac_key, msg=c_text, digestmod=SHA256)
+    hmac = HMAC(hmac_key, msg=c_text, digestmod=eval(encryption))
     b64hmac = hmac.hexdigest()
 
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -217,6 +219,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     data['key'] = b64encode(wrapped_key).decode('utf-8')
     data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
+    data['encryption'] = encryption
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
@@ -288,10 +291,16 @@ def getSecret(name, version="", region=None,
         raise KmsError(msg)
     except Exception as e:
         raise KmsError("Decryption error %s" % e)
+    # Check for the existence of an encryption value
+    if 'encryption' in material:
+        encryption = material['encryption']
+    else:
+        encryption = 'SHA256'
+
     key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
     hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=SHA256)
+                digestmod=eval(encryption))
     if hmac.hexdigest() != material['hmac']:
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
                              % name)
@@ -500,6 +509,11 @@ def main():
                                  "causes the `-v` flag to be ignored. "
                                  "(This option will fail if the currently stored "
                                  "version is not numeric.)")
+    parsers[action].add_argument("-e", "--encryption", default="SHA256",
+                                 choices=HASHING_ALGORITHMS,
+                                 help="the hashing algorithm used to "
+                                 "to encrypt the data. See the README "
+                                 "for more information. Defaults to SHA256")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
@@ -561,7 +575,7 @@ def main():
             try:
                 if putSecret(args.credential, args.value, version,
                              kms_key=args.key, region=region, table=args.table,
-                             context=args.context,
+                             context=args.context, encryption=args.encryption,
                              **session_params):
                     print("{0} has been stored".format(args.credential))
             except KmsError as e:
