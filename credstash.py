@@ -42,6 +42,7 @@ from Crypto.Cipher import AES
 from Crypto.Hash import *
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
+from types import ModuleType
 
 DEFAULT_REGION = "us-east-1"
 HASHING_ALGORITHMS = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512',
@@ -207,7 +208,10 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
     c_text = encryptor.encrypt(secret)
     # compute an HMAC using the hmac key and the ciphertext
-    hmac = HMAC(hmac_key, msg=c_text, digestmod=eval(digest))
+    for item in globals().values():
+        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
+            hmac = HMAC(hmac_key, msg=c_text, digestmod=item)
+
     b64hmac = hmac.hexdigest()
 
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -299,8 +303,10 @@ def getSecret(name, version="", region=None,
 
     key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
-    hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=eval(digest))
+    for item in globals().values():
+        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
+            hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
+                        digestmod=item)
     if hmac.hexdigest() != material['hmac']:
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
                              % name)
