@@ -208,9 +208,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
     c_text = encryptor.encrypt(secret)
     # compute an HMAC using the hmac key and the ciphertext
-    for item in globals().values():
-        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
-            hmac = HMAC(hmac_key, msg=c_text, digestmod=item)
+    hmac = HMAC(hmac_key, msg=c_text, digestmod=get_digest(digest))
 
     b64hmac = hmac.hexdigest()
 
@@ -303,10 +301,8 @@ def getSecret(name, version="", region=None,
 
     key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
-    for item in globals().values():
-        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
-            hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                        digestmod=item)
+    hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
+                        digestmod=get_digest(digest))
     if hmac.hexdigest() != material['hmac']:
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
                              % name)
@@ -398,6 +394,12 @@ def get_assumerole_credentials(arn):
     return dict(aws_access_key_id=credentials['AccessKeyId'],
                 aws_secret_access_key=credentials['SecretAccessKey'],
                 aws_session_token=credentials['SessionToken'])
+
+def get_digest(digest):
+    for item in globals().values():
+        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
+            return item
+    raise ValueError("Could not find " + digest + " in Crypto.Hash")
 
 
 def main():
