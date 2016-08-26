@@ -20,7 +20,6 @@ import operator
 import os
 import os.path
 import sys
-import time
 import re
 import boto3
 import botocore.exceptions
@@ -44,7 +43,7 @@ from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
 DEFAULT_REGION = "us-east-1"
-PAD_LEN = 19 # number of digits in sys.maxint
+PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
 
@@ -80,9 +79,11 @@ def printStdErr(s):
     sys.stderr.write(str(s))
     sys.stderr.write("\n")
 
+
 def fatal(s):
     printStdErr(s)
     sys.exit(1)
+
 
 def key_value_pair(string):
     output = string.split('=')
@@ -118,7 +119,7 @@ def value_or_filename(string):
         try:
             with open(os.path.expanduser(filename)) as f:
                 output = f.read()
-        except IOError as e:
+        except IOError:
             raise argparse.ArgumentTypeError("Unable to read file %s" %
                                              filename)
     else:
@@ -327,7 +328,7 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
         return
 
     print("Creating table...")
-    response = dynamodb.create_table(
+    dynamodb.create_table(
         TableName=table,
         KeySchema=[
             {
@@ -521,7 +522,7 @@ def main():
         session = get_session(**session_params)
         session.resource('dynamodb', region_name=region)
     except botocore.exceptions.NoRegionError:
-        if not 'AWS_DEFAULT_REGION' in os.environ:
+        if 'AWS_DEFAULT_REGION' not in os.environ:
             region = DEFAULT_REGION
 
     if "action" in vars(args):
@@ -555,7 +556,7 @@ def main():
                     version = paddedInt(int(latestVersion) + 1)
                 except ValueError:
                     fatal("Can not autoincrement version. The current "
-                                "version: %s is not an int" % latestVersion)
+                          "version: %s is not an int" % latestVersion)
             else:
                 version = args.version
             try:
