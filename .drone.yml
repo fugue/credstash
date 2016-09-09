@@ -1,8 +1,8 @@
 publish:
-  artifactory:
-    url: https://repository.prod.aws.skyscnr.com/artifactory
+  pypi:
+    repository: https://repository.prod.aws.skyscnr.com/artifactory/api/pypi/pypi/simple
     username: cloudops
     password: @*DecE%lsq
-    repo_key: credstash
-    files:
-      - *
+    distributions:
+      - sdist
+      - bdist_wheel
