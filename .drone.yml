@@ -1,6 +1,6 @@
 publish:
   pypi:
-    repository: "https://repository.prod.aws.skyscnr.com/artifactory/api/pypi/pypi/simple"
+    repository: "https://repository.prod.aws.skyscnr.com/artifactory/api/pypi/pypi"
     username: "cloudops"
     password: "@*DecE%lsq"
     distributions:
