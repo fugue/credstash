@@ -181,7 +181,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              **kwargs):
+              other_tags={}, **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -217,6 +217,12 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     data['key'] = b64encode(wrapped_key).decode('utf-8')
     data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
+
+    # other_tags
+    for key, value in other_tags.items():
+        if key in data.keys():
+            raise ValueError('Cannot set one of the default credstash keys as a tag name.')
+        data[key] = value
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
