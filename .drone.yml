@@ -1,0 +1,8 @@
+publish:
+  artifactory:
+    url: https://repository.prod.aws.skyscnr.com/artifactory
+    username: cloudops
+    password: @*DecE%lsq
+    repo_key: credstash
+    files:
+      - *
