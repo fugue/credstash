@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='credstash',
+    name='cloudops-credstash',
     version='1.11.0',
     description='A utility for managing secrets in the cloud using AWS KMS and DynamoDB',
     license='Apache2',
