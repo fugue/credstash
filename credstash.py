@@ -174,7 +174,8 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    response = secrets.scan(ProjectionExpression="#N, version",
+    response = secrets.scan(FilterExpression=Attr('active').eq('1'),
+                            ProjectionExpression="#N, version",
                             ExpressionAttributeNames={"#N": "name"})
     return response["Items"]
 
