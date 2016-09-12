@@ -167,7 +167,7 @@ def getHighestVersion(name, region=None, table="credential-store",
 def listSecrets(region=None, table="credential-store", **kwargs):
     '''
     do a full-table scan of the credential-store,
-    and return the names and versions of every credential
+    and return the names and versions and date of active credentials
     '''
     session = get_session(**kwargs)
 
