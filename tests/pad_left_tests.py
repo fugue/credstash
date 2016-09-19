@@ -1,10 +1,11 @@
 import unittest
 from credstash import paddedInt
 
+
 class TestPadLeft(unittest.TestCase):
     def test_zero(self):
         i = 0
-        self.assertEqual(paddedInt(i), "0"*19)
+        self.assertEqual(paddedInt(i), "0" * 19)
 
     def test_ten(self):
         i = 10
