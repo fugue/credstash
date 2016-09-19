@@ -207,7 +207,7 @@ You can put or write secrets to credstash by either using KMS Key Grants, KMS Ke
 If you are using Key Policies or Grants, then the `kms:GenerateDataKey` is not required in the policy for the IAM user/group/role. Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console).
 
 ### Secret Reader
-You can read secrets from credstash with the get or getall actions by either using KMS Key Grants, KMS Key Policies, or IAM Policies. If you are using IAM Policies, the following IAM permissions are the minimum required to be able to put or read secrets:
+You can read secrets from credstash with the get or getall actions by either using KMS Key Grants, KMS Key Policies, or IAM Policies. If you are using IAM Policies, the following IAM permissions are the minimum required to be able to get or read secrets:
 ```
 {
   "Version": "2012-10-17",
