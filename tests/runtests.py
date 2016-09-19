@@ -8,16 +8,16 @@ from credstash import paddedInt
 class TestKeyValuePairExtraction(unittest.TestCase):
 
     def test_key_value_pair_has_two_equals(self):
-        self.assertRaises(argparse.ArgumentTypeError, key_value_pair , "==")
+        self.assertRaises(argparse.ArgumentTypeError, key_value_pair, "==")
 
     def test_key_value_pair_has_zero_equals(self):
         self.assertRaises(argparse.ArgumentTypeError, key_value_pair, "")
 
     def test_key_value_pair_has_one_equals(self):
-        self.assertEqual(key_value_pair("="), ["",""])
-            
+        self.assertEqual(key_value_pair("="), ["", ""])
+
     def test_key_value_pair_has_one_equals_with_values(self):
-        self.assertEqual(key_value_pair("key1=value1"), ["key1","value1"])
+        self.assertEqual(key_value_pair("key1=value1"), ["key1", "value1"])
 
 
 class TestExpandingWildcard(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestExpandingWildcard(unittest.TestCase):
 
     def test_end_regex(self):
         self.assertEqual(expand_wildcard("ba", self.secrets_set), ["ba"])
-                        
+
     def test_exact_match_regex(self):
         self.assertEqual(expand_wildcard("abc", self.secrets_set), ["abc"])
 
@@ -49,7 +49,7 @@ class TestExpandingWildcard(unittest.TestCase):
 class TestPadLeft(unittest.TestCase):
     def test_zero(self):
         i = 0
-        self.assertEqual(paddedInt(i), "0"*19)
+        self.assertEqual(paddedInt(i), "0" * 19)
 
     def test_ten(self):
         i = 10
