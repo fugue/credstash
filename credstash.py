@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import print_function
 
 import argparse
 import csv
@@ -42,12 +43,14 @@ from Crypto.Hash import SHA256
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 
+
 DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
 
 class KmsError(Exception):
+
     def __init__(self, value=""):
         self.value = "KMS ERROR: " + value if value is not "" else "KMS ERROR"
 
@@ -56,6 +59,7 @@ class KmsError(Exception):
 
 
 class IntegrityError(Exception):
+
     def __init__(self, value=""):
         self.value = "INTEGRITY ERROR: " + value if value is not "" else \
                      "INTEGRITY ERROR"
@@ -69,6 +73,7 @@ class ItemNotFound(Exception):
 
 
 class KeyValueToDictionary(argparse.Action):
+
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace,
                 self.dest,
@@ -157,12 +162,29 @@ def getHighestVersion(name, region=None, table="credential-store",
     response = secrets.query(Limit=1,
                              ScanIndexForward=False,
                              ConsistentRead=True,
-                             KeyConditionExpression=boto3.dynamodb.conditions.Key("name").eq(name),
+                             KeyConditionExpression=boto3.dynamodb.conditions.Key(
+                                 "name").eq(name),
                              ProjectionExpression="version")
 
     if response["Count"] == 0:
         return 0
     return response["Items"][0]["version"]
+
+
+def clean_fail(func):
+    '''
+    A decorator to cleanly exit on a failed call to AWS.
+    catch a `botocore.exceptions.ClientError` raised from an action.
+    This sort of error is raised if you are targeting a region that
+    isn't set up (see, `credstash setup`.
+    '''
+    def func_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except botocore.exceptions.ClientError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(1)
+    return func_wrapper
 
 
 def listSecrets(region=None, table="credential-store", **kwargs):
@@ -194,7 +216,8 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
     try:
-        kms_response = kms.generate_data_key(KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
+        kms_response = kms.generate_data_key(
+            KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
     except:
         raise KmsError("Could not generate key using KMS key %s" % kms_key)
     data_key = kms_response['Plaintext'][:32]
@@ -242,6 +265,94 @@ def getAllSecrets(version="", region=None, table="credential-store",
     return output
 
 
+@clean_fail
+def getAllAction(args, region, **session_params):
+    secrets = getAllSecrets(args.version,
+                            region=region,
+                            table=args.table,
+                            context=args.context,
+                            **session_params)
+    if args.format == "json":
+        output_func = json.dumps
+        output_args = {"sort_keys": True,
+                       "indent": 4,
+                       "separators": (',', ': ')}
+    elif not NO_YAML and args.format == "yaml":
+        output_func = yaml.dump
+        output_args = {"default_flow_style": False}
+    elif args.format == 'csv':
+        output_func = csv_dump
+        output_args = {}
+    print(output_func(secrets, **output_args))
+
+
+@clean_fail
+def putSecretAction(args, region, **session_params):
+    if args.autoversion:
+        latestVersion = getHighestVersion(args.credential,
+                                          region,
+                                          args.table,
+                                          **session_params)
+        try:
+            version = paddedInt(int(latestVersion) + 1)
+        except ValueError:
+            fatal("Can not autoincrement version. The current "
+                  "version: %s is not an int" % latestVersion)
+    else:
+        version = args.version
+    try:
+        if putSecret(args.credential, args.value, version,
+                     kms_key=args.key, region=region, table=args.table,
+                     context=args.context,
+                     **session_params):
+            print("{0} has been stored".format(args.credential))
+    except KmsError as e:
+        fatal(e)
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            latestVersion = getHighestVersion(args.credential, region,
+                                              args.table,
+                                              **session_params)
+            fatal("%s version %s is already in the credential store. "
+                  "Use the -v flag to specify a new version" %
+                  (args.credential, latestVersion))
+        else:
+            fatal(e)
+
+
+@clean_fail
+def getSecretAction(args, region, **session_params):
+    try:
+        if WILDCARD_CHAR in args.credential:
+            names = expand_wildcard(args.credential,
+                                    [x["name"]
+                                     for x
+                                     in listSecrets(region=region,
+                                                    table=args.table,
+                                                    **session_params)])
+            print(json.dumps(dict((name,
+                                   getSecret(name,
+                                             args.version,
+                                             region=region,
+                                             table=args.table,
+                                             context=args.context,
+                                             **session_params))
+                                  for name in names)))
+        else:
+            sys.stdout.write(getSecret(args.credential, args.version,
+                                       region=region, table=args.table,
+                                       context=args.context,
+                                       **session_params))
+            if not args.noline:
+                sys.stdout.write("\n")
+    except ItemNotFound as e:
+        fatal(e)
+    except KmsError as e:
+        fatal(e)
+    except IntegrityError as e:
+        fatal(e)
+
+
 def getSecret(name, version="", region=None,
               table="credential-store", context=None,
               **kwargs):
@@ -267,13 +378,15 @@ def getSecret(name, version="", region=None,
     else:
         response = secrets.get_item(Key={"name": name, "version": version})
         if "Item" not in response:
-            raise ItemNotFound("Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
+            raise ItemNotFound(
+                "Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
 
     kms = session.client('kms', region_name=region)
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
-        kms_response = kms.decrypt(CiphertextBlob=b64decode(material['key']), EncryptionContext=context)
+        kms_response = kms.decrypt(CiphertextBlob=b64decode(
+            material['key']), EncryptionContext=context)
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Code"] == "InvalidCiphertextException":
             if context is None:
@@ -298,10 +411,12 @@ def getSecret(name, version="", region=None,
                              % name)
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
-    plaintext = decryptor.decrypt(b64decode(material['contents'])).decode("utf-8")
+    plaintext = decryptor.decrypt(
+        b64decode(material['contents'])).decode("utf-8")
     return plaintext
 
 
+@clean_fail
 def deleteSecrets(name, region=None, table="credential-store",
                   **kwargs):
     session = get_session(**kwargs)
@@ -313,10 +428,12 @@ def deleteSecrets(name, region=None, table="credential-store",
                             ExpressionAttributeNames={"#N": "name"})
 
     for secret in response["Items"]:
-        print("Deleting %s -- version %s" % (secret["name"], secret["version"]))
+        print("Deleting %s -- version %s" %
+              (secret["name"], secret["version"]))
         secrets.delete_item(Key=secret)
 
 
+@clean_fail
 def createDdbTable(region=None, table="credential-store", **kwargs):
     '''
     create the secret store table in DDB in the specified region
@@ -386,7 +503,34 @@ def get_assumerole_credentials(arn):
                 aws_session_token=credentials['SessionToken'])
 
 
-def main():
+@clean_fail
+def list_credentials(region, args, **session_params):
+    credential_list = listSecrets(region=region,
+                                  table=args.table,
+                                  **session_params)
+    if credential_list:
+        # print list of credential names and versions,
+        # sorted by name and then by version
+        max_len = max([len(x["name"]) for x in credential_list])
+        for cred in sorted(credential_list,
+                           key=operator.itemgetter("name", "version")):
+            print("{0:{1}} -- version {2:>}".format(
+                cred["name"], max_len, cred["version"]))
+    else:
+        return
+
+
+def get_session_params(profile, arn):
+    params = {}
+    if profile is None and arn:
+        params = get_assumerole_credentials(arn)
+    elif profile:
+        params = dict(profile_name=profile)
+    return params
+
+
+def get_parser():
+    """get the parsers dict"""
     parsers = {}
     parsers['super'] = argparse.ArgumentParser(
         description="A credential/secret storage system")
@@ -507,15 +651,15 @@ def main():
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
     parsers[action].set_defaults(action=action)
+    return parsers
 
+
+def main():
+    parsers = get_parser()
     args = parsers['super'].parse_args()
 
     # Check for assume role and set  session params
-    session_params = {}
-    if args.profile is None and args.arn:
-        session_params = get_assumerole_credentials(args.arn)
-    elif args.profile:
-        session_params = dict(profile_name=args.profile)
+    session_params = get_session_params(args.profile, args.arn)
 
     try:
         region = args.region
@@ -533,99 +677,17 @@ def main():
                           **session_params)
             return
         if args.action == "list":
-            credential_list = listSecrets(region=region,
-                                          table=args.table,
-                                          **session_params)
-            if credential_list:
-                # print list of credential names and versions,
-                # sorted by name and then by version
-                max_len = max([len(x["name"]) for x in credential_list])
-                for cred in sorted(credential_list,
-                                   key=operator.itemgetter("name", "version")):
-                    print("{0:{1}} -- version {2:>}".format(
-                        cred["name"], max_len, cred["version"]))
-            else:
-                return
+            list_credentials(region, args, **session_params)
+            return
         if args.action == "put":
-            if args.autoversion:
-                latestVersion = getHighestVersion(args.credential,
-                                                  region,
-                                                  args.table,
-                                                  **session_params)
-                try:
-                    version = paddedInt(int(latestVersion) + 1)
-                except ValueError:
-                    fatal("Can not autoincrement version. The current "
-                          "version: %s is not an int" % latestVersion)
-            else:
-                version = args.version
-            try:
-                if putSecret(args.credential, args.value, version,
-                             kms_key=args.key, region=region, table=args.table,
-                             context=args.context,
-                             **session_params):
-                    print("{0} has been stored".format(args.credential))
-            except KmsError as e:
-                fatal(e)
-            except botocore.exceptions.ClientError as e:
-                if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                    latestVersion = getHighestVersion(args.credential, region,
-                                                      args.table,
-                                                      **session_params)
-                    fatal("%s version %s is already in the credential store. "
-                          "Use the -v flag to specify a new version" %
-                          (args.credential, latestVersion))
-                else:
-                    fatal(e)
+            putSecretAction(args, region, **session_params)
+            return
+
         if args.action == "get":
-            try:
-                if WILDCARD_CHAR in args.credential:
-                    names = expand_wildcard(args.credential,
-                                            [x["name"]
-                                             for x
-                                             in listSecrets(region=region,
-                                                            table=args.table,
-                                                            **session_params)])
-                    print(json.dumps(dict((name,
-                                          getSecret(name,
-                                                    args.version,
-                                                    region=region,
-                                                    table=args.table,
-                                                    context=args.context,
-                                                    **session_params))
-                                          for name in names)))
-                else:
-                    sys.stdout.write(getSecret(args.credential, args.version,
-                                               region=region, table=args.table,
-                                               context=args.context,
-                                               **session_params))
-                    if not args.noline:
-                        sys.stdout.write("\n")
-            except ItemNotFound as e:
-                fatal(e)
-            except KmsError as e:
-                fatal(e)
-            except IntegrityError as e:
-                fatal(e)
+            getSecretAction(args, region, **session_params)
             return
         if args.action == "getall":
-            secrets = getAllSecrets(args.version,
-                                    region=region,
-                                    table=args.table,
-                                    context=args.context,
-                                    **session_params)
-            if args.format == "json":
-                output_func = json.dumps
-                output_args = {"sort_keys": True,
-                               "indent": 4,
-                               "separators": (',', ': ')}
-            elif not NO_YAML and args.format == "yaml":
-                output_func = yaml.dump
-                output_args = {"default_flow_style": False}
-            elif args.format == 'csv':
-                output_func = csv_dump
-                output_args = {}
-            print(output_func(secrets, **output_args))
+            getAllAction(args, region, **session_params)
             return
         if args.action == "setup":
             createDdbTable(region=region, table=args.table,
