@@ -39,12 +39,15 @@ except ImportError:
 from base64 import b64encode, b64decode
 from boto3.dynamodb.conditions import Attr
 from Crypto.Cipher import AES
-from Crypto.Hash import SHA256
+from Crypto.Hash import *
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
+from types import ModuleType
 
 
 DEFAULT_REGION = "us-east-1"
+HASHING_ALGORITHMS = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512',
+                      'MD2', 'MD4', 'MD5', 'RIPEMD']
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
@@ -204,7 +207,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version, kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              **kwargs):
+              digest="SHA256", **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -229,7 +232,8 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
 
     c_text = encryptor.encrypt(secret)
     # compute an HMAC using the hmac key and the ciphertext
-    hmac = HMAC(hmac_key, msg=c_text, digestmod=SHA256)
+    hmac = HMAC(hmac_key, msg=c_text, digestmod=get_digest(digest))
+
     b64hmac = hmac.hexdigest()
 
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -241,6 +245,7 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
     data['key'] = b64encode(wrapped_key).decode('utf-8')
     data['contents'] = b64encode(c_text).decode('utf-8')
     data['hmac'] = b64hmac
+    data['digest'] = digest
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
@@ -303,7 +308,7 @@ def putSecretAction(args, region, **session_params):
     try:
         if putSecret(args.credential, args.value, version,
                      kms_key=args.key, region=region, table=args.table,
-                     context=args.context,
+                     context=args.context, digest=args.digest,
                      **session_params):
             print("{0} has been stored".format(args.credential))
     except KmsError as e:
@@ -402,10 +407,16 @@ def getSecret(name, version="", region=None,
         raise KmsError(msg)
     except Exception as e:
         raise KmsError("Decryption error %s" % e)
+    # Check for the existence of a digest value
+    if 'digest' in material:
+        digest = material['digest']
+    else:
+        digest = 'SHA256'
+
     key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
     hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=SHA256)
+                digestmod=get_digest(digest))
     if hmac.hexdigest() != material['hmac']:
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
                              % name)
@@ -501,6 +512,13 @@ def get_assumerole_credentials(arn):
     return dict(aws_access_key_id=credentials['AccessKeyId'],
                 aws_secret_access_key=credentials['SecretAccessKey'],
                 aws_session_token=credentials['SessionToken'])
+
+
+def get_digest(digest):
+    for item in globals().values():
+        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
+            return item
+    raise ValueError("Could not find " + digest + " in Crypto.Hash")
 
 
 @clean_fail
@@ -645,6 +663,10 @@ def get_parser():
                                  "causes the `-v` flag to be ignored. "
                                  "(This option will fail if the currently stored "
                                  "version is not numeric.)")
+    parsers[action].add_argument("-d", "--digest", default="SHA256",
+                                 choices=HASHING_ALGORITHMS,
+                                 help="the hashing algorithm used to "
+                                 "to encrypt the data. Defaults to SHA256")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
@@ -682,7 +704,6 @@ def main():
         if args.action == "put":
             putSecretAction(args, region, **session_params)
             return
-
         if args.action == "get":
             getSecretAction(args, region, **session_params)
             return
