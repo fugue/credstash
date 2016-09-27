@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import boto3
-import credstash
+import credsmash
 import copy
 
 
@@ -29,7 +29,7 @@ def updateVersions(region="us-east-1", table="credential-store"):
     for old_item in items:
         if isInt(old_item['version']):
             new_item = copy.copy(old_item)
-            new_item['version'] = credstash.paddedInt(new_item['version'])
+            new_item['version'] = credsmash.paddedInt(new_item['version'])
             if new_item['version'] != old_item['version']:
                 secrets.put_item(Item=new_item)
                 secrets.delete_item(Key={'name': old_item['name'], 'version': old_item['version']})
