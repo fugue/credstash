@@ -27,7 +27,7 @@
    key_id = dev-credkey
    ```
 
-   Alternatively, provide the `--table-name` and `--key-id` parameters to each command.
+   You can override this by providing the `--table-name` and `--key-id` parameters to each command. 
    
  - The signatures of nearly every command has changed,
  

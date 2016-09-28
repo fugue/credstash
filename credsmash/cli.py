@@ -56,10 +56,10 @@ class Environment(object):
               envvar='CREDSMASH_CONFIG',
               type=click.Path(resolve_path=True),
               default='/etc/credsmash.cfg')
-@click.option('--table-name', '-t', default='secret-store',
+@click.option('--table-name', '-t', default=None,
               help="DynamoDB table to use for "
                    "credential storage")
-@click.option('--key-id', '-k', default='alias/credsmash',
+@click.option('--key-id', '-k', default=None,
               help="the KMS key-id of the master key "
                    "to use. See the README for more "
                    "information. Defaults to alias/credsmash")
@@ -69,8 +69,13 @@ def main(ctx, config, table_name, key_id):
     if os.path.exists(config):
         with codecs.open(config, 'r') as config_fp:
             config_data = parse_config(config_fp).get('credsmash', {})
-    config_data.setdefault('table_name', table_name)
-    config_data.setdefault('key_id', key_id)
+    config_data.setdefault('table_name', 'secret-store')
+    if table_name:
+        config_data['table_name'] = table_name
+    config_data.setdefault('key_id', 'alias/credsmash')
+    if key_id:
+        config_data['key_id'] = key_id
+
     set_stream_logger(
         level=config_data.get('log_level', 'INFO')
     )
