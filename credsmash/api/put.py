@@ -1,19 +1,30 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from boto3.dynamodb.types import Binary
 from boto3.dynamodb.conditions import Attr
-from credsmash.aes_ctr import seal_aes_ctr_legacy
+from credsmash.aes_ctr import seal_aes_ctr_legacy, seal_aes_ctr, ALGO_AES_CTR, ALGO_AES_CTR_LEGACY
 from credsmash.util import padded_int
 
 
 def put_secret(
         secrets_table, key_service, secret_name,
-        secret_value, secret_version, **seal_kwargs
+        secret_value, secret_version, algorithm=ALGO_AES_CTR, **seal_kwargs
 ):
-    sealed = seal_aes_ctr_legacy(
-        key_service,
-        secret_value,
-        **seal_kwargs
-    )
+    if algorithm == ALGO_AES_CTR:
+        sealed = seal_aes_ctr(
+            key_service,
+            secret_value,
+            binary_type=Binary,
+            **seal_kwargs
+        )
+    elif algorithm == ALGO_AES_CTR_LEGACY:
+        sealed = seal_aes_ctr_legacy(
+            key_service,
+            secret_value,
+            **seal_kwargs
+        )
+    else:
+        raise RuntimeError('Unsupported algo: %s' % algorithm)
     data = {
         'name': secret_name,
         'version': padded_int(secret_version),

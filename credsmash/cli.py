@@ -10,7 +10,7 @@ import codecs
 import boto3
 import click
 import credsmash.api
-from credsmash.aes_ctr import DEFAULT_DIGEST, HASHING_ALGORITHMS
+from credsmash.aes_ctr import DEFAULT_DIGEST, HASHING_ALGORITHMS, ALGO_AES_CTR
 from credsmash.key_service import KeyService
 from credsmash.util import set_stream_logger, \
     parse_config, read_one, read_many, write_one, write_many
@@ -19,10 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class Environment(object):
-    def __init__(self, table_name, key_id, encryption_context):
+    def __init__(self, table_name, key_id, encryption_context, algorithm):
         self.table_name = table_name
         self.key_id = key_id
         self.encryption_context = encryption_context
+        self.algorithm = algorithm
         self._session = None
         self._dynamodb = None
         self._kms = None
@@ -94,7 +95,8 @@ def main(ctx, config, table_name, key_id, context=None):
         level=config_data.get('log_level', 'INFO')
     )
     env = Environment(
-        config_data['table_name'], config_data['key_id'], config_data['encryption_context']
+        config_data['table_name'], config_data['key_id'], config_data['encryption_context'],
+        config_data.get('algorithm', ALGO_AES_CTR)
     )
     logger.debug('environment=%r', env)
     ctx.obj = env
@@ -306,6 +308,7 @@ def cmd_put_one(ctx, secret_name, source, format='raw', version=None, digest=DEF
         secret_name,
         secret_value,
         version,
+        algorithm=ctx.obj.algorithm,
         digest_method=digest
     )
     logger.info(
@@ -334,6 +337,7 @@ def cmd_put_many(ctx, source, format='json', digest=DEFAULT_DIGEST):
             secret_name,
             secret_value,
             version,
+            algorithm=ctx.obj.algorithm,
             digest_method=digest
         )
         logger.info('Stored {0} @ version {1}'.format(secret_name, version))

@@ -1,12 +1,18 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from base64 import b64encode, b64decode
+import os
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.hmac import HMAC
 
+ALGO_AES_CTR = 'aes-ctr'
+ALGO_AES_CTR_LEGACY = 'aes-ctr-legacy'
+
+
+DEFAULT_KEY_LENGTH = 64
 
 _hash_classes = {
     'SHA': hashes.SHA1,
@@ -24,6 +30,49 @@ HASHING_ALGORITHMS = _hash_classes.keys()
 LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 
+def open_aes_ctr(key_service, material):
+    """
+    Decrypts secrets stored by `seal_aes_ctr`.
+
+    Allows for binary plaintext
+    """
+    key = key_service.decrypt(material['key'])
+    digest_method = material.get('digest', DEFAULT_DIGEST)
+    ciphertext = material['contents']
+    hmac = material['hmac']
+    nonce = material.get('nonce', LEGACY_NONCE)
+    return _open_aes_ctr(key, nonce, ciphertext, hmac, digest_method)
+
+
+def seal_aes_ctr(key_service, secret, digest_method=DEFAULT_DIGEST, key_length=DEFAULT_KEY_LENGTH, binary_type=None):
+    """
+    Encrypts `secret` using the key service.
+
+    You can decrypt with the companion method `open_aes_ctr`.
+    """
+    key, encoded_key = key_service.generate_key_data(key_length)
+    nonce = os.urandom(16)
+    ciphertext, hmac = _seal_aes_ctr(
+        secret, key, nonce, digest_method
+    )
+
+    # Agh! a mighty break in abstraction
+    # DynamoDB wont put `bytes` => `Binary` in python2
+    # So we need to wrap it with a special type
+    def Binary(value):
+        if binary_type:
+            return binary_type(value)
+        return value
+    return {
+        'key': Binary(encoded_key),
+        'contents': Binary(ciphertext),
+        'hmac': Binary(hmac),
+        'nonce': Binary(nonce),
+        'digest_method': digest_method,
+        'algorithm': ALGO_AES_CTR,
+    }
+
+
 def open_aes_ctr_legacy(key_service, material):
     """
     Decrypts secrets stored by `seal_aes_ctr_legacy`.
@@ -39,6 +88,8 @@ def open_aes_ctr_legacy(key_service, material):
 
 def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
     """
+    :deprecated: Please use `seal_aes_ctr` instead.
+
     Encrypts `secret` using the key service.
 
     You can decrypt with the companion method `open_aes_ctr_legacy`.

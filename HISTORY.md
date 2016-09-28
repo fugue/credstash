@@ -67,3 +67,8 @@
    - `credsmash find-many <pattern> <file>`
       - Works the same as `find-one` except returns all results (and doesn't support `raw`)
       
+ - By default, new secrets are stored as `Binary` types in DynamoDB; these can't be read by existing `credstash`
+   clients. Please set, `algorithm = aes-ctr-legacy` in your `credsmash.cfg` if you need to support `credstash` clients.
+   
+   Note: If you store a binary file, you can only retrieve it using the `raw` format, for example -
+   `credsmash get <name> <file> -f raw`

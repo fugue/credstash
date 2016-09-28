@@ -4,6 +4,7 @@ import csv
 import json
 import logging
 
+import six
 from six.moves import configparser
 
 try:
@@ -11,6 +12,8 @@ try:
     HAS_YAML = True
 except ImportError:
     HAS_YAML = False
+
+logger = logging.getLogger(__name__)
 
 
 class ItemNotFound(Exception):
@@ -33,11 +36,15 @@ def write_one(secret_name, secret_value, destination, format):
 
 def write_many(secrets, destination, format):
     if format == 'csv':
+        # XX - current csv writer doesn't support unicode, so force to ascii
+        secrets = dict(encode_strings(secrets, encoding='ascii'))
         csvwriter = csv.writer(destination)
         for secret_name, secret_value in secrets.items():
             csvwriter.writerow([secret_name, secret_value])
         return
 
+    # Both JSON/YAML support unicode, so this should be fine
+    secrets = dict(encode_strings(secrets, encoding='utf-8'))
     if format == 'json':
         json.dump(secrets, destination, sort_keys=True, indent=4, separators=(',', ': '))
         return
@@ -49,6 +56,18 @@ def write_many(secrets, destination, format):
         return
 
     raise RuntimeError('Unsupported format: %s' % format)
+
+
+def encode_strings(secrets, encoding):
+    for secret_name, secret_value in secrets.items():
+        if isinstance(secret_value, six.binary_type):
+            try:
+                secret_value = secret_value.decode(encoding)
+            except UnicodeDecodeError:
+                logger.warning('Could not decode %s as utf-8.', secret_name)
+                # Skip this secret
+                continue
+        yield secret_name, secret_value
 
 
 def read_one(secret_name, source, format):

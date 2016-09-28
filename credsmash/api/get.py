@@ -1,7 +1,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from boto3.dynamodb.types import Binary
 from boto3.dynamodb.conditions import Key as ConditionKey
-from credsmash.aes_ctr import open_aes_ctr_legacy
+from credsmash.aes_ctr import open_aes_ctr_legacy, open_aes_ctr, ALGO_AES_CTR
 from credsmash.util import ItemNotFound, padded_int
 
 
@@ -10,7 +11,21 @@ def get_secret(secrets_table, key_service, secret_name, version=None):
         material = get_latest_secret(secrets_table, secret_name)
     else:
         material = get_versioned_secret(secrets_table, secret_name, version)
+
+    material = _unwrap_dynamodb_types(material)
+
+    if material.get('algorithm') == ALGO_AES_CTR:
+        return open_aes_ctr(key_service, material)
+
+    # Try decrypting unknown algorithms with the legacy service
     return open_aes_ctr_legacy(key_service, material)
+
+
+def _unwrap_dynamodb_types(obj):
+    return {
+        k: (v.value if isinstance(v, Binary) else v)
+        for k, v in obj.items()
+    }
 
 
 def get_latest_secret(secrets_table, secret_name):
