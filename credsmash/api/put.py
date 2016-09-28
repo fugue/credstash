@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import six
 from boto3.dynamodb.types import Binary
 from boto3.dynamodb.conditions import Attr
 from credsmash.aes_ctr import seal_aes_ctr_legacy, seal_aes_ctr, ALGO_AES_CTR, ALGO_AES_CTR_LEGACY
@@ -11,6 +12,8 @@ def put_secret(
         secrets_table, key_service, secret_name,
         secret_value, secret_version, algorithm=ALGO_AES_CTR, **seal_kwargs
 ):
+    if isinstance(secret_value, six.text_type):
+        secret_value = secret_value.encode('utf-8')
     if algorithm == ALGO_AES_GCM:
         sealed = seal_aes_gcm(
             key_service,
