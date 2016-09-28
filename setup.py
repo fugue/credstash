@@ -25,7 +25,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
     ],
     install_requires=[
-        'pycrypto>=2.6.1',
+        'cryptography~=1.5',
         'boto3>=1.1.1',
         'click>=6.6',
         'six'
