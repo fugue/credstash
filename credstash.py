@@ -38,18 +38,66 @@ except ImportError:
 
 from base64 import b64encode, b64decode
 from boto3.dynamodb.conditions import Attr
-from Crypto.Cipher import AES
-from Crypto.Hash import *  # noqa
-from Crypto.Hash.HMAC import HMAC
-from Crypto.Util import Counter
-from types import ModuleType
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.hmac import HMAC
 
+_hash_classes = {
+    'SHA': hashes.SHA1,
+    'SHA224': hashes.SHA224,
+    'SHA256': hashes.SHA256,
+    'SHA384': hashes.SHA384,
+    'SHA512': hashes.SHA512,
+    'RIPEMD': hashes.RIPEMD160,
+    'WHIRLPOOL': hashes.Whirlpool,
+    'MD5': hashes.MD5,
+}
+
+DEFAULT_DIGEST = 'SHA256'
+HASHING_ALGORITHMS = _hash_classes.keys()
+LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 DEFAULT_REGION = "us-east-1"
-HASHING_ALGORITHMS = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512',
-                      'MD2', 'MD4', 'MD5', 'RIPEMD']
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
+
+
+class KeyService(object):
+    def __init__(self, kms, key_id, encryption_context):
+        self.kms = kms
+        self.key_id = key_id
+        self.encryption_context = encryption_context
+
+    def generate_key_data(self, number_of_bytes):
+        try:
+            kms_response = self.kms.generate_data_key(
+                KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=number_of_bytes
+            )
+        except:
+            raise KmsError("Could not generate key using KMS key %s" % self.key_id)
+        return kms_response['Plaintext'], kms_response['CiphertextBlob']
+
+    def decrypt(self, encoded_key):
+        try:
+            kms_response = self.kms.decrypt(
+                CiphertextBlob=encoded_key,
+                EncryptionContext=self.encryption_context
+            )
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "InvalidCiphertextException":
+                if self.encryption_context is None:
+                    msg = ("Could not decrypt hmac key with KMS. The credential may "
+                           "require that an encryption context be provided to decrypt "
+                           "it.")
+                else:
+                    msg = ("Could not decrypt hmac key with KMS. The encryption "
+                           "context provided may not match the one used when the "
+                           "credential was stored.")
+            else:
+                msg = "Decryption error %s" % e
+            raise KmsError(msg)
+        return kms_response['Plaintext']
 
 
 class KmsError(Exception):
@@ -224,36 +272,21 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         context = {}
     session = get_session(**kwargs)
     kms = session.client('kms', region_name=region)
-    # generate a a 64 byte key.
-    # Half will be for data encryption, the other half for HMAC
-    try:
-        kms_response = kms.generate_data_key(
-            KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
-    except:
-        raise KmsError("Could not generate key using KMS key %s" % kms_key)
-    data_key = kms_response['Plaintext'][:32]
-    hmac_key = kms_response['Plaintext'][32:]
-    wrapped_key = kms_response['CiphertextBlob']
-
-    enc_ctr = Counter.new(128)
-    encryptor = AES.new(data_key, AES.MODE_CTR, counter=enc_ctr)
-
-    c_text = encryptor.encrypt(secret)
-    # compute an HMAC using the hmac key and the ciphertext
-    hmac = HMAC(hmac_key, msg=c_text, digestmod=get_digest(digest))
-
-    b64hmac = hmac.hexdigest()
+    key_service = KeyService(kms, kms_key, context)
+    sealed = seal_aes_ctr_legacy(
+        key_service,
+        secret,
+        **kwargs
+    )
 
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    data = {}
-    data['name'] = name
-    data['version'] = version if version != "" else paddedInt(1)
-    data['key'] = b64encode(wrapped_key).decode('utf-8')
-    data['contents'] = b64encode(c_text).decode('utf-8')
-    data['hmac'] = b64hmac
-    data['digest'] = digest
+    data = {
+        'name': name,
+        'version': paddedInt(version),
+    }
+    data.update(sealed)
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
@@ -399,43 +432,9 @@ def getSecret(name, version="", region=None,
         material = response["Item"]
 
     kms = session.client('kms', region_name=region)
-    # Check the HMAC before we decrypt to verify ciphertext integrity
-    try:
-        kms_response = kms.decrypt(CiphertextBlob=b64decode(
-            material['key']), EncryptionContext=context)
-    except botocore.exceptions.ClientError as e:
-        if e.response["Error"]["Code"] == "InvalidCiphertextException":
-            if context is None:
-                msg = ("Could not decrypt hmac key with KMS. The credential may "
-                       "require that an encryption context be provided to decrypt "
-                       "it.")
-            else:
-                msg = ("Could not decrypt hmac key with KMS. The encryption "
-                       "context provided may not match the one used when the "
-                       "credential was stored.")
-        else:
-            msg = "Decryption error %s" % e
-        raise KmsError(msg)
-    except Exception as e:
-        raise KmsError("Decryption error %s" % e)
-    # Check for the existence of a digest value
-    if 'digest' in material:
-        digest = material['digest']
-    else:
-        digest = 'SHA256'
+    key_service = KeyService(kms, None, context)
 
-    key = kms_response['Plaintext'][:32]
-    hmac_key = kms_response['Plaintext'][32:]
-    hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=get_digest(digest))
-    if hmac.hexdigest() != material['hmac']:
-        raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
-                             % name)
-    dec_ctr = Counter.new(128)
-    decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
-    plaintext = decryptor.decrypt(
-        b64decode(material['contents'])).decode("utf-8")
-    return plaintext
+    return open_aes_ctr_legacy(key_service, material)
 
 
 @clean_fail
@@ -525,11 +524,84 @@ def get_assumerole_credentials(arn):
                 aws_session_token=credentials['SessionToken'])
 
 
+def open_aes_ctr_legacy(key_service, material):
+    """
+    Decrypts secrets stored by `seal_aes_ctr_legacy`.
+    Assumes that the plaintext is unicode (non-binary).
+    """
+    key = key_service.decrypt(b64decode(material['key']))
+    digest_method = material.get('digest', DEFAULT_DIGEST)
+    ciphertext = b64decode(material['contents'])
+    hmac = material['hmac'].decode('hex')
+    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method).decode("utf-8")
+
+
+def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
+    """
+    Encrypts `secret` using the key service.
+    You can decrypt with the companion method `open_aes_ctr_legacy`.
+    """
+    # generate a a 64 byte key.
+    # Half will be for data encryption, the other half for HMAC
+    key, encoded_key = key_service.generate_key_data(64)
+    ciphertext, hmac = _seal_aes_ctr(
+        secret, key, LEGACY_NONCE, digest_method,
+    )
+    return {
+        'key': b64encode(encoded_key).decode('utf-8'),
+        'contents': b64encode(ciphertext).decode('utf-8'),
+        'hmac': hmac.encode('hex'),
+        'digest_method': digest_method,
+    }
+
+
+def _open_aes_ctr(key, nonce, ciphertext, expected_hmac, digest_method):
+    data_key, hmac_key = _halve_key(key)
+    hmac = _get_hmac(hmac_key, ciphertext, digest_method)
+    # Check the HMAC before we decrypt to verify ciphertext integrity
+    if hmac != expected_hmac:
+        raise IntegrityError("Computed HMAC on %s does not match stored HMAC")
+
+    decryptor = Cipher(
+        algorithms.AES(data_key),
+        modes.CTR(nonce),
+        backend=default_backend()
+    ).decryptor()
+    return decryptor.update(ciphertext) + decryptor.finalize()
+
+
+def _seal_aes_ctr(plaintext, key, nonce, digest_method):
+    data_key, hmac_key = _halve_key(key)
+    encryptor = Cipher(
+        algorithms.AES(data_key),
+        modes.CTR(nonce),
+        backend=default_backend()
+    ).encryptor()
+
+    ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+    return ciphertext, _get_hmac(hmac_key, ciphertext, digest_method)
+
+
+def _get_hmac(key, ciphertext, digest_method):
+    hmac = HMAC(
+        key,
+        get_digest(digest_method),
+        backend=default_backend()
+    )
+    hmac.update(ciphertext)
+    return hmac.finalize()
+
+
+def _halve_key(key):
+    half = len(key) // 2
+    return key[:half], key[half:]
+
+
 def get_digest(digest):
-    for item in globals().values():
-        if (type(item) == ModuleType) and (item.__name__ == 'Crypto.Hash.' + digest):
-            return item
-    raise ValueError("Could not find " + digest + " in Crypto.Hash")
+    try:
+        return _hash_classes[digest]()
+    except KeyError:
+        raise ValueError("Could not find " + digest + " in cryptography.hazmat.primitives.hashes")
 
 
 @clean_fail
