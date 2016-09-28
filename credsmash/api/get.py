@@ -10,9 +10,9 @@ from boto3.dynamodb.conditions import Key as ConditionKey
 from credsmash.util import ItemNotFound, KmsError, get_digest, IntegrityError, padded_int
 
 
-def get_secret(secrets_table, kms, secret_name, version=None, context=None):
-    if not context:
-        context = {}
+def get_secret(secrets_table, kms, secret_name, version=None, encryption_context=None):
+    if not encryption_context:
+        encryption_context = {}
 
     if version is None:
         # do a consistent fetch of the credential with the highest version
@@ -37,11 +37,11 @@ def get_secret(secrets_table, kms, secret_name, version=None, context=None):
     try:
         kms_response = kms.decrypt(
             CiphertextBlob=b64decode(material['key']),
-            EncryptionContext=context
+            EncryptionContext=encryption_context
         )
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Code"] == "InvalidCiphertextException":
-            if context is None:
+            if encryption_context is None:
                 msg = ("Could not decrypt hmac key with KMS. The credential may "
                        "require that an encryption context be provided to decrypt "
                        "it.")

@@ -12,17 +12,17 @@ from credsmash.util import padded_int, KmsError, get_digest, DEFAULT_DIGEST
 
 def put_secret(
         secrets_table, kms, key_id, secret_name,
-        secret_value, secret_version, context=None, digest=DEFAULT_DIGEST
+        secret_value, secret_version, encryption_context=None, digest=DEFAULT_DIGEST
 ):
 
-    if not context:
-        context = {}
+    if not encryption_context:
+        encryption_context = {}
 
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
     try:
         kms_response = kms.generate_data_key(
-            KeyId=key_id, EncryptionContext=context, NumberOfBytes=64
+            KeyId=key_id, EncryptionContext=encryption_context, NumberOfBytes=64
         )
     except:
         raise KmsError("Could not generate key using KMS key %s" % key_id)

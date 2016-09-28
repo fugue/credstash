@@ -25,10 +25,16 @@
    [credsmash]
    table_name = dev-credential-store
    key_id = dev-credkey
+   [credsmash:encryption_context]
+   environment=production
+   purpose=web
    ```
 
-   You can override this by providing the `--table-name` and `--key-id` parameters to each command. 
-   
+   You can override this by providing the `--table-name` and `--key-id` parameters to each command.
+    
+   If you provide `--context` to a command, it will only append each key-value pair to the context,
+   rather than overwriting it completely.
+
  - The signatures of nearly every command has changed,
  
    - `credsmash get <name> <file>` 
