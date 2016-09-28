@@ -10,8 +10,9 @@ import codecs
 import boto3
 import click
 import credsmash.api
+from credsmash.aes_ctr import DEFAULT_DIGEST, HASHING_ALGORITHMS
+from credsmash.key_service import KeyService
 from credsmash.util import set_stream_logger, \
-    DEFAULT_DIGEST, HASHING_ALGORITHMS, \
     parse_config, read_one, read_many, write_one, write_many
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,10 @@ class Environment(object):
         if self._kms is None:
             self._kms = self.session.client('kms')
         return self._kms
+
+    @property
+    def key_service(self):
+        return KeyService(self.kms, self.key_id, self.encryption_context)
 
     @property
     def secrets_table(self):
@@ -193,10 +198,9 @@ def cmd_get_one(ctx, secret_name, destination, format='raw', version=None):
     """
     secret_value = credsmash.api.get_secret(
         ctx.obj.secrets_table,
-        ctx.obj.kms,
+        ctx.obj.key_service,
         secret_name,
         version=version,
-        encryption_context=ctx.obj.encryption_context
     )
     write_one(secret_name, secret_value, destination, format)
 
@@ -215,9 +219,8 @@ def cmd_get_all(ctx, destination, format='json'):
     secrets = {
         secret_name: credsmash.api.get_secret(
             ctx.obj.secrets_table,
-            ctx.obj.kms,
+            ctx.obj.key_service,
             secret_name,
-            encryption_context=ctx.obj.encryption_context
         )
         for secret_name in secret_names
     }
@@ -246,10 +249,9 @@ def cmd_find_one(ctx, pattern, destination, format='raw', version=None):
     secret_name = secret_names[0]
     secret_value = credsmash.api.get_secret(
         ctx.obj.secrets_table,
-        ctx.obj.kms,
+        ctx.obj.key_service,
         secret_name,
         version=version,
-        encryption_context=ctx.obj.encryption_context
     )
     write_one(secret_name, secret_value, destination, format)
 
@@ -270,9 +272,8 @@ def cmd_find_many(ctx, pattern, destination, format='json'):
     secrets = {
         secret_name: credsmash.api.get_secret(
             ctx.obj.secrets_table,
-            ctx.obj.kms,
+            ctx.obj.key_service,
             secret_name,
-            encryption_context=ctx.obj.encryption_context
         )
         for secret_name in secret_names
     }
@@ -301,13 +302,11 @@ def cmd_put_one(ctx, secret_name, source, format='raw', version=None, digest=DEF
 
     credsmash.api.put_secret(
         ctx.obj.secrets_table,
-        ctx.obj.kms,
-        ctx.obj.key_id,
+        ctx.obj.key_service,
         secret_name,
         secret_value,
         version,
-        encryption_context=ctx.obj.encryption_context,
-        digest=digest
+        digest_method=digest
     )
     logger.info(
         'Stored {0} @ version {1}'.format(secret_name, version)
@@ -331,13 +330,11 @@ def cmd_put_many(ctx, source, format='json', digest=DEFAULT_DIGEST):
         )
         credsmash.api.put_secret(
             ctx.obj.secrets_table,
-            ctx.obj.kms,
-            ctx.obj.key_id,
+            ctx.obj.key_service,
             secret_name,
             secret_value,
             version,
-            encryption_context=ctx.obj.encryption_context,
-            digest=digest
+            digest_method=digest
         )
         logger.info('Stored {0} @ version {1}'.format(secret_name, version))
     logger.debug('Stored {0} secrets'.format(len(secrets)))

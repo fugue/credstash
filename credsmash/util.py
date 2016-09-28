@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import csv
-import importlib
 import json
 import logging
 
@@ -14,25 +13,6 @@ except ImportError:
     HAS_YAML = False
 
 
-class KmsError(Exception):
-
-    def __init__(self, value=""):
-        self.value = "KMS ERROR: " + value if value is not "" else "KMS ERROR"
-
-    def __str__(self):
-        return self.value
-
-
-class IntegrityError(Exception):
-
-    def __init__(self, value=""):
-        self.value = "INTEGRITY ERROR: " + value if value is not "" else \
-                     "INTEGRITY ERROR"
-
-    def __str__(self):
-        return self.value
-
-
 class ItemNotFound(Exception):
     pass
 
@@ -42,16 +22,6 @@ INT_FMT = '019d'
 def padded_int(i):
     return format(i, INT_FMT)
 
-
-DEFAULT_DIGEST = 'SHA256'
-HASHING_ALGORITHMS = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512',
-                      'MD2', 'MD4', 'MD5', 'RIPEMD']
-
-def get_digest(digest):
-    try:
-        return importlib.import_module('Crypto.Hash.{0}'.format(digest))
-    except ImportError:
-        raise ValueError("Could not find " + digest + " in Crypto.Hash")
 
 
 def write_one(secret_name, secret_value, destination, format):
