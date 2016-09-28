@@ -4,7 +4,7 @@ This is a fork of [credstash](https://github.com/fugue/credstash), to add
 some utilities I find useful, see `HISTORY.md` for details.
 
 ## Quick Installation
-1. `pip install credsmash`
+1. `pip install credsmash[yaml, templates]`
 2. Set up a key called `credsmash` in KMS
 3. Make sure you have AWS creds in a place that boto/botocore can read 
    them (eg, [Use environment `AWS_CONFIG_FILE`](http://boto3.readthedocs.io/en/latest/guide/configuration.html#environment-variables))

@@ -357,3 +357,10 @@ def cmd_setup(ctx, read_capacity, write_capacity):
         ctx.obj.dynamodb, ctx.obj.table_name,
         read_capacity, write_capacity
     )
+
+
+try:
+    from .templates import templates_cli
+    main.commands.update(templates_cli.commands)
+except ImportError:
+    pass

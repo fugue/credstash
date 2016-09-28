@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import csv
 import json
 import logging
+import re
 
 import six
 from six.moves import configparser
@@ -103,6 +104,16 @@ def read_many(source, format):
     return secrets
 
 
+def parse_manifest(source, format):
+    if format == 'json':
+        return json.load(source)
+    if format == 'yaml':
+        if not HAS_YAML:
+            raise RuntimeError('YAML Module not loaded. Please install with `pip install credsmash[yaml]`')
+        return yaml.load(source)
+    raise RuntimeError('Unsupported format: %s' % format)
+
+
 def parse_config(fp):
     config = {}
     cp = configparser.RawConfigParser()
@@ -136,4 +147,21 @@ class NullHandler(logging.Handler):
 
 
 logging.getLogger('credsmash').addHandler(NullHandler())
+
+
+_find_unsafe = re.compile(r'[a-zA-Z0-9_^@%+=:,./-]').search
+
+
+def shell_quote(s):
+    """Return a shell-escaped version of the string *s*."""
+    if not s:
+        return "''"
+
+    if _find_unsafe(s) is None:
+        return s
+
+    # use single quotes, and put single quotes into double quotes
+    # the string $'b is then quoted as '$'"'"'b'
+
+    return "'" + s.replace("'", "'\"'\"'") + "'"
 

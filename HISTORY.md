@@ -96,3 +96,20 @@
    [credsmash:aes-gcm]
    key_length=32
    ```
+ - We support writing shell & json script templates, directly from `credsmash` data.
+   
+   eg, `credsmash render-templates manifest.yaml --manifest-format yaml`
+
+   ```yaml
+    - source: /path/to/my/template.j2
+       destination: /path/to/output/myfile
+      mode: 0600
+      owner: root
+      group: root
+    - source: /path/to/another/template.j2
+      destination: /path/to/output/anotherfile
+      mode: 0600
+      owner: root
+      group: root
+    ```
+

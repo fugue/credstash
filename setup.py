@@ -31,7 +31,8 @@ setup(
         'six'
     ],
     extras_require={
-        'YAML': ['PyYAML>=3.10']
+        'yaml': ['PyYAML>=3.10'],
+        'templates': ['jinja2'],
     },
     entry_points={
         'console_scripts': [
