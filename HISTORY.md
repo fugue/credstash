@@ -72,3 +72,27 @@
    
    Note: If you store a binary file, you can only retrieve it using the `raw` format, for example -
    `credsmash get <name> <file> -f raw`
+
+ - We support AES-CTR or AES-GCM mode, you can configure like so-
+ 
+   AES-CTR with SHA512:
+   ```cfg
+   [credsmash]
+   table_name = dev-credential-store
+   key_id = dev-credkey
+   algorithm = aes-ctr
+   [credsmash:aes-ctr]
+   key_length=64
+   digest_method=SHA512
+   ```
+
+   AES-GCM with 32-byte key:
+
+   ```cfg
+   [credsmash]
+   table_name = dev-credential-store
+   key_id = dev-credkey
+   algorithm = aes-gcm
+   [credsmash:aes-gcm]
+   key_length=32
+   ```

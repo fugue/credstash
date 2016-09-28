@@ -10,7 +10,7 @@ import codecs
 import boto3
 import click
 import credsmash.api
-from credsmash.aes_ctr import DEFAULT_DIGEST, HASHING_ALGORITHMS, ALGO_AES_CTR
+from credsmash.aes_ctr import ALGO_AES_CTR
 from credsmash.key_service import KeyService
 from credsmash.util import set_stream_logger, \
     parse_config, read_one, read_many, write_one, write_many
@@ -19,11 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 class Environment(object):
-    def __init__(self, table_name, key_id, encryption_context, algorithm):
+    def __init__(self, table_name, key_id, encryption_context, algorithm, algorithm_options):
         self.table_name = table_name
         self.key_id = key_id
         self.encryption_context = encryption_context
         self.algorithm = algorithm
+        self.algorithm_options = algorithm_options
         self._session = None
         self._dynamodb = None
         self._kms = None
@@ -74,6 +75,7 @@ class Environment(object):
 @click.pass_context
 def main(ctx, config, table_name, key_id, context=None):
     config_data = {}
+    sections = {}
     if os.path.exists(config):
         with codecs.open(config, 'r') as config_fp:
             sections = parse_config(config_fp)
@@ -91,12 +93,15 @@ def main(ctx, config, table_name, key_id, context=None):
         # Start with the existing context, and append the new values to it
         config_data['encryption_context'].update(dict(context))
 
+    algorithm = config_data.get('algorithm', ALGO_AES_CTR)
+    algorithm_options = sections.get('credsmash:%s' % algorithm, {})
+
     set_stream_logger(
         level=config_data.get('log_level', 'INFO')
     )
     env = Environment(
         config_data['table_name'], config_data['key_id'], config_data['encryption_context'],
-        config_data.get('algorithm', ALGO_AES_CTR)
+        algorithm, algorithm_options
     )
     logger.debug('environment=%r', env)
     ctx.obj = env
@@ -287,11 +292,8 @@ def cmd_find_many(ctx, pattern, destination, format='json'):
 @click.argument('source', type=click.File('rb'))
 @click.option('--format', '-f', default='raw')
 @click.option('--version', '-v', default=None, type=click.INT)
-@click.option('--digest', default=DEFAULT_DIGEST, type=click.Choice(HASHING_ALGORITHMS),
-              help="the hashing algorithm used to "
-                   "to encrypt the data. Defaults to SHA256")
 @click.pass_context
-def cmd_put_one(ctx, secret_name, source, format='raw', version=None, digest=DEFAULT_DIGEST):
+def cmd_put_one(ctx, secret_name, source, format='raw', version=None):
     """
     Store a secret
     """
@@ -309,7 +311,7 @@ def cmd_put_one(ctx, secret_name, source, format='raw', version=None, digest=DEF
         secret_value,
         version,
         algorithm=ctx.obj.algorithm,
-        digest_method=digest
+        **ctx.obj.algorithm_options
     )
     logger.info(
         'Stored {0} @ version {1}'.format(secret_name, version)
@@ -319,9 +321,8 @@ def cmd_put_one(ctx, secret_name, source, format='raw', version=None, digest=DEF
 @main.command('put-many')
 @click.argument('source', type=click.File('rb'))
 @click.option('--format', '-f', default='json')
-@click.option('--digest', default=DEFAULT_DIGEST)
 @click.pass_context
-def cmd_put_many(ctx, source, format='json', digest=DEFAULT_DIGEST):
+def cmd_put_many(ctx, source, format='json'):
     """
     Store many secrets
     """
@@ -338,7 +339,7 @@ def cmd_put_many(ctx, source, format='json', digest=DEFAULT_DIGEST):
             secret_value,
             version,
             algorithm=ctx.obj.algorithm,
-            digest_method=digest
+            **ctx.obj.algorithm_options
         )
         logger.info('Stored {0} @ version {1}'.format(secret_name, version))
     logger.debug('Stored {0} secrets'.format(len(secrets)))

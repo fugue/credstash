@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from boto3.dynamodb.types import Binary
 from boto3.dynamodb.conditions import Key as ConditionKey
 from credsmash.aes_ctr import open_aes_ctr_legacy, open_aes_ctr, ALGO_AES_CTR
+from credsmash.aes_gcm import open_aes_gcm, ALGO_AES_GCM
 from credsmash.util import ItemNotFound, padded_int
 
 
@@ -13,6 +14,9 @@ def get_secret(secrets_table, key_service, secret_name, version=None):
         material = get_versioned_secret(secrets_table, secret_name, version)
 
     material = _unwrap_dynamodb_types(material)
+
+    if material.get('algorithm') == ALGO_AES_GCM:
+        return open_aes_gcm(key_service, material)
 
     if material.get('algorithm') == ALGO_AES_CTR:
         return open_aes_ctr(key_service, material)

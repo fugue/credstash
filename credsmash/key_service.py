@@ -12,7 +12,7 @@ class KeyService(object):
     def generate_key_data(self, number_of_bytes):
         try:
             kms_response = self.kms.generate_data_key(
-                KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=number_of_bytes
+                KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=int(number_of_bytes)
             )
         except:
             raise KmsError("Could not generate key using KMS key %s" % self.key_id)

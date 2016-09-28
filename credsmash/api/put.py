@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from boto3.dynamodb.types import Binary
 from boto3.dynamodb.conditions import Attr
 from credsmash.aes_ctr import seal_aes_ctr_legacy, seal_aes_ctr, ALGO_AES_CTR, ALGO_AES_CTR_LEGACY
+from credsmash.aes_gcm import seal_aes_gcm, ALGO_AES_GCM
 from credsmash.util import padded_int
 
 
@@ -10,7 +11,14 @@ def put_secret(
         secrets_table, key_service, secret_name,
         secret_value, secret_version, algorithm=ALGO_AES_CTR, **seal_kwargs
 ):
-    if algorithm == ALGO_AES_CTR:
+    if algorithm == ALGO_AES_GCM:
+        sealed = seal_aes_gcm(
+            key_service,
+            secret_value,
+            binary_type=Binary,
+            **seal_kwargs
+        )
+    elif algorithm == ALGO_AES_CTR:
         sealed = seal_aes_ctr(
             key_service,
             secret_value,
