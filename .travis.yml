@@ -1,11 +1,23 @@
 language: python
 python:
-  - "2.6"
-  - "2.7"
-  - "3.2"
-  - "3.3"
-  - "3.4"
-  - "pypy"
+- '2.7'
 install:
-  - pip install -r requirements.txt
-script: nosetests 
+- pip install pytest-runner setupext-pip~=1.0.5
+- python setup.py requirements -t -e documentation -e templates -e yaml
+- python setup.py develop
+script:
+- python setup.py test
+cache:
+  pip: true
+addons:
+  apt_packages:
+  - pandoc
+deploy:
+  provider: pypi
+  user: nathan-muir
+  password:
+    secure: Hr6cqHg4rebLQpOeDEDV7O4/2FzkTCxNx+ZcpeoG8RWktV3VjeR1fGmfuugOlFy+xKzjuJtOEc1KjGygaZRF3R9cqqIkrNGQ7sueOKvXy54GXAl/fKDo0wJzBgsC38nsepAHPOQT42NheADgXIKbBWwNTIHfPzcUqMm8ONlHW/YtyUH2LEGadHreC3nLiNkzWph8NsLDkXdqHkN5/tQd+MaVTyF4ca8R0QTWLVL2QKOLfVcT1+XwD0tGaqzXol9+IWBcsxHAdxizy0SHQR5Kg8JVo5QW2SINJjtdQZoj5T3aJBIWIiYLYxHgxO5lNpNyoVHrjTj6de208fCCage1T4wQmezs0WTFztGRnqLeVShm6aPyl6U4OQ8InwR7iDvqL/p+hQz/vDV1TPKfSfAKiRn1j+Wy4JJZWYQ14JYkkMp+AN8plUp4ajygjxZTO3Eo44RL4iptfSxRqkSfqUBmkjIbbDvJv5Db8z5pdWpyHI9wRvsbd9mp8f/TbiHRsj8ILIMl1F6vVSdoegBiblkuHoxiCqLPj3rstvsu8dR30iqN3R7Gah5WVttL5xtHOkMZC+ThT+H4mFBpAFIjc1hN45GsK90WFajb+9s1v65hrk/t8AhyMJm88yb93lpWYjMRal6e6m/ftdWq5tRR2LoNJ7v5tft0XeBTfc6HyR4gspE=
+  on:
+    tags: true
+    distributions: sdist bdist_wheel
+    repo: 3stack-software/credsmash
