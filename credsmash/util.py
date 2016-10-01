@@ -66,7 +66,11 @@ def write_many(secrets, destination, format):
     if format == 'yaml':
         if not HAS_YAML:
             raise RuntimeError('YAML Module not loaded. Please install with `pip install credsmash[yaml]`')
-        yaml.dump(secrets, destination, default_flow_style=False)
+        # Using safe_dump prevents it adding all the "!!python/unicode" annotations
+        yaml.safe_dump(
+            secrets, destination, default_flow_style=False,
+            encoding='utf-8', allow_unicode=True
+        )
         return
 
     raise RuntimeError('Unsupported format: %s' % format)
