@@ -309,22 +309,17 @@ def cmd_put_one(ctx, secret_name, source, fmt=None, version=None):
         fmt = detect_format(source, default_format='raw')
     secret_value = read_one(secret_name, source, fmt)
 
-    if version is None:
-        version = 1 + credsmash.api.get_highest_version(
-            ctx.obj.secrets_table, secret_name
-        )
-
-    credsmash.api.put_secret(
+    stored_version = credsmash.api.put_secret(
         ctx.obj.secrets_table,
         ctx.obj.key_service,
         secret_name,
         secret_value,
-        version,
+        version=version,
         algorithm=ctx.obj.algorithm,
         **ctx.obj.algorithm_options
     )
     logger.info(
-        'Stored {0} @ version {1}'.format(secret_name, version)
+        'Stored {0} @ version {1}'.format(secret_name, stored_version)
     )
 
 
@@ -341,19 +336,16 @@ def cmd_put_many(ctx, source, fmt):
     secrets = read_many(source, fmt)
 
     for secret_name, secret_value in secrets.items():
-        version = 1 + credsmash.api.get_highest_version(
-            ctx.obj.secrets_table, secret_name
-        )
-        credsmash.api.put_secret(
+        stored_version = credsmash.api.put_secret(
             ctx.obj.secrets_table,
             ctx.obj.key_service,
             secret_name,
             secret_value,
-            version,
+            version=None,
             algorithm=ctx.obj.algorithm,
             **ctx.obj.algorithm_options
         )
-        logger.info('Stored {0} @ version {1}'.format(secret_name, version))
+        logger.info('Stored {0} @ version {1}'.format(secret_name, stored_version))
     logger.debug('Stored {0} secrets'.format(len(secrets)))
 
 

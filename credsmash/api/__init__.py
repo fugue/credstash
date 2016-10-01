@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from .delete import delete_secret
 from .get import get_secret
-from .highest_version import get_highest_version
 from .list import list_secrets
 from .prune import prune_secret
 from .put import put_secret
