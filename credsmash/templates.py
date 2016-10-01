@@ -11,7 +11,7 @@ import click
 import jinja2.sandbox
 
 import credsmash.api
-from credsmash.util import read_many, shell_quote, parse_manifest
+from credsmash.util import read_many, shell_quote, parse_manifest, detect_format
 
 logger = logging.getLogger(__name__)
 
@@ -51,17 +51,19 @@ def templates_cli():
 @click.option('--data-file', type=click.File(mode='rb'),
               help="Source from data file instead of credential store "
                    "(useful for caching/testing)")
-@click.option('--data-file-format', default='json')
+@click.option('--data-file-format', default=None)
 @click.pass_context
 def cmd_render_template(
         ctx, template, destination,
         obj_name='secrets', key_fmt='{0}',
-        data_file=None, data_file_format='json'
+        data_file=None, data_file_format=None
 ):
     """
     Render a configuration template....
     """
     if data_file:
+        if not data_file_format:
+            data_file_format = detect_format(data_file, 'json')
         data = read_many(data_file, data_file_format)
         secrets = CachingProxy(lambda key: data[key], key_fmt)
     else:
@@ -80,7 +82,7 @@ def cmd_render_template(
 
 @templates_cli.command('render-templates')
 @click.argument('manifest', type=click.File(mode='r', encoding='utf-8'))
-@click.option('--manifest-format', default='json')
+@click.option('--manifest-format', default=None)
 @click.option('--obj-name', default='secrets',
               help='The variable/object name provided to the template')
 @click.option('--key-fmt', default='{0}',
@@ -89,17 +91,19 @@ def cmd_render_template(
 @click.option('--data-file', type=click.File(mode='rb'),
               help="Source from data file instead of credential store "
                    "(useful for caching/testing)")
-@click.option('--data-file-format', default='json')
+@click.option('--data-file-format', default=None)
 @click.pass_context
 def cmd_render_template(
-        ctx, manifest, manifest_format,
+        ctx, manifest, manifest_format=None,
         obj_name='secrets', key_fmt='{0}',
-        data_file=None, data_file_format='json'
+        data_file=None, data_file_format=None
 ):
     """
     Render multiple configuration templates - reads from a manifest file.
     """
     if data_file:
+        if not data_file_format:
+            data_file_format = detect_format(data_file, 'json')
         data = read_many(data_file, data_file_format)
         secrets = CachingProxy(lambda key: data[key], key_fmt)
     else:
@@ -110,6 +114,8 @@ def cmd_render_template(
         ), key_fmt)
 
     env = _make_env()
+    if not manifest_format:
+        manifest_format = detect_format(manifest, 'json')
     for entry in parse_manifest(manifest, manifest_format):
         with codecs.open(entry['source'], 'r', encoding='utf-8') as template, \
                 codecs.open(entry['destination'], 'w', encoding='utf-8') as destination:

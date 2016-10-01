@@ -4,6 +4,7 @@ import csv
 import json
 import logging
 import re
+import os
 
 import six
 from six.moves import configparser
@@ -26,6 +27,18 @@ INT_FMT = '019d'
 def padded_int(i):
     return format(i, INT_FMT)
 
+
+def detect_format(fo, default_format):
+    fname = getattr(fo, 'name', None)
+    if fname:
+        ext = os.path.splitext(fname)[-1].lower()
+        if ext == '.json':
+            return 'json'
+        if ext == '.yml' or ext == '.yaml':
+            return 'yaml'
+        if ext == '.csv':
+            return 'csv'
+    return default_format
 
 
 def write_one(secret_name, secret_value, destination, format):

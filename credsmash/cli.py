@@ -12,7 +12,7 @@ import click
 import credsmash.api
 from credsmash.aes_ctr import ALGO_AES_CTR
 from credsmash.key_service import KeyService
-from credsmash.util import set_stream_logger, \
+from credsmash.util import set_stream_logger, detect_format, \
     parse_config, read_one, read_many, write_one, write_many
 
 logger = logging.getLogger(__name__)
@@ -196,10 +196,10 @@ def cmd_prune_many(ctx, pattern):
 @main.command('get')
 @click.argument('secret_name')
 @click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
-@click.option('--format', '-f', default='raw')
+@click.option('-f', '--format', 'fmt', default=None)
 @click.option('--version', '-v', default=None, type=click.INT)
 @click.pass_context
-def cmd_get_one(ctx, secret_name, destination, format='raw', version=None):
+def cmd_get_one(ctx, secret_name, destination, fmt=None, version=None):
     """
     Fetch the latest, or a specific version of a secret
     """
@@ -209,14 +209,16 @@ def cmd_get_one(ctx, secret_name, destination, format='raw', version=None):
         secret_name,
         version=version,
     )
-    write_one(secret_name, secret_value, destination, format)
+    if not fmt:
+        fmt = detect_format(destination, default_format='raw')
+    write_one(secret_name, secret_value, destination, fmt)
 
 
 @main.command('get-all')
 @click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
-@click.option('--format', '-f', default='json')
+@click.option('-f', '--format', 'fmt', default=None)
 @click.pass_context
-def cmd_get_all(ctx, destination, format='json'):
+def cmd_get_all(ctx, destination, fmt):
     """
     Fetch the latest version of all secrets
     """
@@ -231,16 +233,18 @@ def cmd_get_all(ctx, destination, format='json'):
         )
         for secret_name in secret_names
     }
-    write_many(secrets, destination, format)
+    if not fmt:
+        fmt = detect_format(destination, default_format='json')
+    write_many(secrets, destination, fmt)
 
 
 @main.command('find-one')
 @click.argument('pattern')
 @click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
-@click.option('--format', '-f', default='raw')
+@click.option('-f', '--format', 'fmt', default=None)
 @click.option('--version', '-v', default=None)
 @click.pass_context
-def cmd_find_one(ctx, pattern, destination, format='raw', version=None):
+def cmd_find_one(ctx, pattern, destination, fmt=None, version=None):
     """
     Find exactly one secret matching <pattern>
     """
@@ -260,15 +264,17 @@ def cmd_find_one(ctx, pattern, destination, format='raw', version=None):
         secret_name,
         version=version,
     )
-    write_one(secret_name, secret_value, destination, format)
+    if not fmt:
+        fmt = detect_format(destination, default_format='raw')
+    write_one(secret_name, secret_value, destination, fmt)
 
 
 @main.command('find-many')
 @click.argument('pattern')
 @click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
-@click.option('--format', '-f', default='json')
+@click.option('-f', '--format', 'fmt', default=None)
 @click.pass_context
-def cmd_find_many(ctx, pattern, destination, format='json'):
+def cmd_find_many(ctx, pattern, destination, fmt=None):
     """
     Find all secrets matching <pattern>
     """
@@ -284,20 +290,24 @@ def cmd_find_many(ctx, pattern, destination, format='json'):
         )
         for secret_name in secret_names
     }
-    write_many(secrets, destination, format)
+    if not fmt:
+        fmt = detect_format(destination, default_format='json')
+    write_many(secrets, destination, fmt)
 
 
 @main.command('put')
 @click.argument('secret_name')
 @click.argument('source', type=click.File('rb'))
-@click.option('--format', '-f', default='raw')
+@click.option('-f', '--format', 'fmt', default=None)
 @click.option('--version', '-v', default=None, type=click.INT)
 @click.pass_context
-def cmd_put_one(ctx, secret_name, source, format='raw', version=None):
+def cmd_put_one(ctx, secret_name, source, fmt=None, version=None):
     """
     Store a secret
     """
-    secret_value = read_one(secret_name, source, format)
+    if not fmt:
+        fmt = detect_format(source, default_format='raw')
+    secret_value = read_one(secret_name, source, fmt)
 
     if version is None:
         version = 1 + credsmash.api.get_highest_version(
@@ -320,13 +330,15 @@ def cmd_put_one(ctx, secret_name, source, format='raw', version=None):
 
 @main.command('put-many')
 @click.argument('source', type=click.File('rb'))
-@click.option('--format', '-f', default='json')
+@click.option('-f', '--format', 'fmt', default=None)
 @click.pass_context
-def cmd_put_many(ctx, source, format='json'):
+def cmd_put_many(ctx, source, fmt):
     """
     Store many secrets
     """
-    secrets = read_many(source, format)
+    if not fmt:
+        fmt = detect_format(source, default_format='json')
+    secrets = read_many(source, fmt)
 
     for secret_name, secret_value in secrets.items():
         version = 1 + credsmash.api.get_highest_version(
