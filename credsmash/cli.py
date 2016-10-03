@@ -130,7 +130,7 @@ def cmd_list(ctx, pattern=None):
 
     max_len = max(len(secret["name"]) for secret in secrets)
     for cred in sorted(secrets, key=operator.itemgetter("name", "version")):
-        logger.info(
+        click.echo(
             "{cred[name]:{l}} -- version {cred[version]:>}".format(l=max_len, cred=cred)
         )
 
