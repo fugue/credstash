@@ -2,27 +2,17 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from boto3.dynamodb.types import Binary
 from boto3.dynamodb.conditions import Key as ConditionKey
-from credsmash.aes_ctr import open_aes_ctr_legacy, open_aes_ctr, ALGO_AES_CTR
-from credsmash.aes_gcm import open_aes_gcm, ALGO_AES_GCM
 from credsmash.util import ItemNotFound, padded_int
+from credsmash.crypto import open_secret
 
 
 def get_secret(secrets_table, key_service, secret_name, version=None):
     if version is None:
-        material = get_latest_secret(secrets_table, secret_name)
+        ciphertext = get_latest_secret(secrets_table, secret_name)
     else:
-        material = get_versioned_secret(secrets_table, secret_name, version)
+        ciphertext = get_versioned_secret(secrets_table, secret_name, version)
 
-    material = _unwrap_dynamodb_types(material)
-
-    if material.get('algorithm') == ALGO_AES_GCM:
-        return open_aes_gcm(key_service, material)
-
-    if material.get('algorithm') == ALGO_AES_CTR:
-        return open_aes_ctr(key_service, material)
-
-    # Try decrypting unknown algorithms with the legacy service
-    return open_aes_ctr_legacy(key_service, material)
+    return open_secret(key_service, ciphertext)
 
 
 def _unwrap_dynamodb_types(obj):
@@ -42,7 +32,7 @@ def get_latest_secret(secrets_table, secret_name):
     )
     if response["Count"] == 0:
         raise ItemNotFound("Item {'name': '%s'} couldn't be found." % secret_name)
-    return response["Items"][0]
+    return _unwrap_dynamodb_types(response["Items"][0])
 
 
 def get_versioned_secret(secrets_table, secret_name, version):
@@ -51,4 +41,4 @@ def get_versioned_secret(secrets_table, secret_name, version):
     if "Item" not in response:
         raise ItemNotFound(
             "Item {'name': '%s', 'version': '%s'} couldn't be found." % (secret_name, version))
-    return response["Item"]
+    return _unwrap_dynamodb_types(response["Item"])

@@ -2,8 +2,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 import base64
-import credsmash.aes_ctr
-import credsmash.aes_gcm
+import credsmash.crypto.aes_ctr as aes_ctr
+import credsmash.crypto.aes_gcm as aes_gcm
 
 
 class DummyKeyService(object):
@@ -22,11 +22,11 @@ def test_aes_ctr_legacy():
     key_service = DummyKeyService()
 
     plaintext = b'abcdefghi'
-    material = credsmash.aes_ctr.seal_aes_ctr_legacy(
+    material = aes_ctr.seal_aes_ctr_legacy(
         key_service,
         plaintext
     )
-    recovered_plaintext = credsmash.aes_ctr.open_aes_ctr_legacy(
+    recovered_plaintext = aes_ctr.open_aes_ctr_legacy(
         key_service, material
     )
     assert plaintext == recovered_plaintext
@@ -36,11 +36,11 @@ def test_aes_ctr():
     key_service = DummyKeyService()
 
     plaintext = b'abcdefghi'
-    material = credsmash.aes_ctr.seal_aes_ctr(
+    material = aes_ctr.seal_aes_ctr(
         key_service,
         plaintext
     )
-    recovered_plaintext = credsmash.aes_ctr.open_aes_ctr(
+    recovered_plaintext = aes_ctr.open_aes_ctr(
         key_service, material
     )
     assert plaintext == recovered_plaintext
@@ -50,11 +50,11 @@ def test_aes_gcm():
     key_service = DummyKeyService()
 
     plaintext = b'abcdefghi'
-    material = credsmash.aes_gcm.seal_aes_gcm(
+    material = aes_gcm.seal_aes_gcm(
         key_service,
         plaintext
     )
-    recovered_plaintext = credsmash.aes_gcm.open_aes_gcm(
+    recovered_plaintext = aes_gcm.open_aes_gcm(
         key_service, material
     )
     assert plaintext == recovered_plaintext

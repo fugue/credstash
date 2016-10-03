@@ -10,7 +10,7 @@ import codecs
 import boto3
 import click
 import credsmash.api
-from credsmash.aes_ctr import ALGO_AES_CTR
+from credsmash.crypto import ALGO_AES_CTR
 from credsmash.key_service import KeyService
 from credsmash.util import set_stream_logger, detect_format, \
     parse_config, read_one, read_many, write_one, write_many
