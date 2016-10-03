@@ -340,8 +340,10 @@ def cmd_find_many(ctx, pattern, destination, fmt=None):
 @click.argument('source', type=click.File('rb'))
 @click.option('-f', '--format', 'fmt', default=None)
 @click.option('--version', '-v', default=None, type=click.INT)
+@click.option('--compare/--no-compare', default=True,
+              help="Compare with the latest value, and skip if unchanged.")
 @click.pass_context
-def cmd_put_one(ctx, secret_name, source, fmt=None, version=None):
+def cmd_put_one(ctx, secret_name, source, fmt=None, version=None, compare=True):
     """
     Store a secret
     """
@@ -355,6 +357,7 @@ def cmd_put_one(ctx, secret_name, source, fmt=None, version=None):
         secret_name,
         secret_value,
         version=version,
+        compare=compare,
         algorithm=ctx.obj.algorithm,
         **ctx.obj.algorithm_options
     )
@@ -366,8 +369,10 @@ def cmd_put_one(ctx, secret_name, source, fmt=None, version=None):
 @main.command('put-many')
 @click.argument('source', type=click.File('rb'))
 @click.option('-f', '--format', 'fmt', default=None)
+@click.option('--compare/--no-compare', default=True,
+              help="Compare with the latest value, and skip if unchanged.")
 @click.pass_context
-def cmd_put_many(ctx, source, fmt):
+def cmd_put_many(ctx, source, fmt, compare=True):
     """
     Store many secrets
     """
@@ -382,6 +387,7 @@ def cmd_put_many(ctx, source, fmt):
             secret_name,
             secret_value,
             version=None,
+            compare=compare,
             algorithm=ctx.obj.algorithm,
             **ctx.obj.algorithm_options
         )

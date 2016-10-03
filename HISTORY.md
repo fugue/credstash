@@ -137,3 +137,6 @@
    option_1 = a
    option_2 = b
    ```
+
+ - By default `credsmash put` will check if the value of a secret has changed. Use `--version` or `--no-compare` to
+   avoid this comparison.
