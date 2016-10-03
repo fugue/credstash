@@ -11,7 +11,8 @@ import click
 import jinja2.sandbox
 
 import credsmash.api
-from credsmash.util import read_many, shell_quote, parse_manifest, detect_format
+from .util import read_many, shell_quote, parse_manifest, detect_format
+from .cli import main
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +36,7 @@ class CachingProxy(object):
         return self._data[key]
 
 
-@click.group()
-def templates_cli():
-    pass
-
-
-@templates_cli.command('render-template')
+@main.command('render-template')
 @click.argument('template', type=click.File(mode='r', encoding='utf-8'))
 @click.argument('destination', type=click.File(mode='w', encoding='utf-8'))
 @click.option('--obj-name', default='secrets',
@@ -80,7 +76,7 @@ def cmd_render_template(
     destination.write(output)
 
 
-@templates_cli.command('render-templates')
+@main.command('render-templates')
 @click.argument('manifest', type=click.File(mode='r', encoding='utf-8'))
 @click.option('--manifest-format', default=None)
 @click.option('--obj-name', default='secrets',

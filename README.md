@@ -8,7 +8,7 @@ some utilities I find useful, see `HISTORY.md` for details.
 2. Set up a key called `credsmash` in KMS
 3. Make sure you have AWS creds in a place that boto/botocore can read 
    them (eg, [Use environment `AWS_CONFIG_FILE`](http://boto3.readthedocs.io/en/latest/guide/configuration.html#environment-variables))
-4. `credsmash setup`
+4. `credsmash setup-dynamodb`
 
 
 ## What is this?
@@ -96,7 +96,7 @@ credsmash uses the following AWS services:
 1. Set up a key called `credsmash` in KMS
 2. `pip install credsmash`
 3. Make sure you have AWS creds in a place that boto/botocore can read them
-4. Run `credsmash setup`
+4. Run `credsmash setup-dynamodb`
 
 ### Setting up KMS
 `credsmash` will not currently set up your KMS master key. To create a KMS master key,
@@ -122,7 +122,7 @@ You will need to have AWS credentials accessible to boto/botocore. The easiest t
 
 You can specify the region in which `credsmash` should operate by using the `-r` flag, or by setting the `AWS_DEFAULT_REGION` environment variable. Note that the command line flag takes precedence over the environment variable. If you set neither, then `credsmash` will operate against us-east-1.
 
-Once credentials are in place, run `credsmash setup`. This will create the DDB table needed for credential storage.
+Once credentials are in place, run `credsmash setup-dynamodb`. This will create the DDB table needed for credential storage.
 
 ### Working with multiple AWS accounts (profiles)
 
@@ -148,27 +148,30 @@ See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standar
 Usage: credsmash [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  -c, --config FILENAME
-  -t, --table-name TEXT    DynamoDB table to use for credential storage
-  -k, --key-id TEXT        the KMS key-id of the master key to use. See the
-                           README for more information. Defaults to
-                           alias/credsmash
-  -p, --profile-name TEXT  Boto config profile to use when connecting to AWS
-  --help                   Show this message and exit.
+  -c, --config PATH
+  -t, --table-name TEXT     DynamoDB table to use for credential storage
+  -k, --key-id TEXT         the KMS key-id of the master key to use. See the
+                            README for more information. Defaults to
+                            alias/credsmash
+  --context <TEXT TEXT>...  the KMS encryption context to use.Only works if
+                            --key-id is passed.
+  --help                    Show this message and exit.
 
 Commands:
-  delete       Delete every version of a single secret
-  delete-many  Delete every version of all matching secrets
-  find-many    Find all secrets matching <pattern>
-  find-one     Find exactly one secret matching <pattern>
-  get          Fetch the latest, or a specific version of a...
-  get-all      Fetch the latest version of all secrets
-  list         List all secrets & their versions.
-  prune        Delete all but the latest version of a single...
-  prune-many   Delete all but the latest version of all...
-  put          Store a secret
-  put-many     Store many secrets
-  setup        Setup the credential table in AWS DynamoDB
+  delete            Delete every version of a single secret
+  delete-many       Delete every version of all matching secrets
+  find-many         Find all secrets matching <pattern>
+  find-one          Find exactly one secret matching <pattern>
+  get               Fetch the latest, or a specific version of a...
+  get-all           Fetch the latest version of all secrets
+  list              List all secrets & their versions.
+  prune             Delete all but the latest version of a single...
+  prune-many        Delete all but the latest version of all...
+  put               Store a secret
+  put-many          Store many secrets
+  render-template   Render a configuration template....
+  render-templates  Render multiple configuration templates -...
+  setup-dynamodb    Setup the credential table in AWS DynamoDB
 ```
 
 ## IAM Policies

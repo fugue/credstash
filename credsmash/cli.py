@@ -13,7 +13,6 @@ import pkg_resources
 
 import credsmash.api
 from credsmash.crypto import ALGO_AES_CTR
-from credsmash.dynamodb_storage_service import DynamoDbStorageService
 from credsmash.util import set_stream_logger, detect_format, \
     parse_config, read_one, read_many, write_one, write_many
 
@@ -395,25 +394,9 @@ def cmd_put_many(ctx, source, fmt, compare=True):
     logger.debug('Stored {0} secrets'.format(len(secrets)))
 
 
-@main.command('setup')
-@click.option('--read-capacity', type=click.INT, default=1)
-@click.option('--write-capacity', type=click.INT, default=1)
-@click.pass_context
-def cmd_setup(ctx, read_capacity, write_capacity):
-    """
-    Setup the credential table in AWS DynamoDB
-    """
-    #TODO - allow the dynamodb service to register it's own CLI command
-    storage_service = ctx.obj.storage_service
-    if not isinstance(storage_service, DynamoDbStorageService):
-        raise click.ClickException('Cannot setup unknown storage service')
-    storage_service.setup(
-        read_capacity, write_capacity
-    )
-
-
-try:
-    from .templates import templates_cli
-    main.commands.update(templates_cli.commands)
-except ImportError:
-    pass
+# Load any extra CLI's
+for ep in pkg_resources.iter_entry_points('credsmash.cli'):
+    try:
+        ep.load()
+    except ImportError:
+        pass

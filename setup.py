@@ -78,6 +78,10 @@ setup(
         'credsmash.storage_service': [
             'dynamodb = credsmash.dynamodb_storage_service:DynamoDbStorageService',
         ],
+        'credsmash.cli': [
+            'templates = credsmash.templates',
+            'dynamodb = credsmash.cli_dynamodb'
+        ]
     },
 
     classifiers=[
