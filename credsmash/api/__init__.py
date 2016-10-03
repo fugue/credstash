@@ -6,4 +6,3 @@ from .get import get_secret
 from .list import list_secrets
 from .prune import prune_secret
 from .put import put_secret
-from .setup import create_secrets_table

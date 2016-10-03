@@ -22,12 +22,6 @@ class ItemNotFound(Exception):
     pass
 
 
-INT_FMT = '019d'
-
-def padded_int(i):
-    return format(i, INT_FMT)
-
-
 def detect_format(fo, default_format):
     fname = getattr(fo, 'name', None)
     if fname:

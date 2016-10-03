@@ -116,12 +116,24 @@
 
  - You can define alternative key-services, by using the `credsmash.key_service` [entry point](http://setuptools.readthedocs.io/en/latest/pkg_resources.html#entry-points).
  
-	eg, to load a key service called `custom_ks`
-	
+  eg, to load a key service called `custom_ks`
+  
    ```cfg
    [credsmash]
    key_service = custom_ks
    [credsmash:key_service:custom_ks]
+   option_1 = a
+   option_2 = b
+   ```
+
+ - You can define alternative storage-services, by using the `credsmash.storage_service` [entry point](http://setuptools.readthedocs.io/en/latest/pkg_resources.html#entry-points).
+ 
+  eg, to load a storage service called `custom_s3_backend`
+  
+   ```cfg
+   [credsmash]
+   storage_service = custom_s3_backend
+   [credsmash:storage_service:custom_s3_backend]
    option_1 = a
    option_2 = b
    ```

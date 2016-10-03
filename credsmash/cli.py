@@ -13,6 +13,7 @@ import pkg_resources
 
 import credsmash.api
 from credsmash.crypto import ALGO_AES_CTR
+from credsmash.dynamodb_storage_service import DynamoDbStorageService
 from credsmash.util import set_stream_logger, detect_format, \
     parse_config, read_one, read_many, write_one, write_many
 
@@ -20,27 +21,24 @@ logger = logging.getLogger(__name__)
 
 
 class Environment(object):
-    def __init__(self, table_name, key_service_name, key_service_config, algorithm, algorithm_options):
-        self.table_name = table_name
+    def __init__(self, storage_service_name, storage_service_config,
+                 key_service_name, key_service_config,
+                 algorithm, algorithm_options):
+        self._storage_service = None
+        self.storage_service_name = storage_service_name
+        self.storage_service_config = storage_service_config
         self._key_service = None
         self.key_service_name = key_service_name
         self.key_service_config = key_service_config
         self.algorithm = algorithm
         self.algorithm_options = algorithm_options
         self._session = None
-        self._dynamodb = None
 
     @property
     def session(self):
         if self._session is None:
            self._session = boto3.Session()
         return self._session
-
-    @property
-    def dynamodb(self):
-        if self._dynamodb is None:
-            self._dynamodb = self.session.resource('dynamodb')
-        return self._dynamodb
 
     @staticmethod
     def load_entry_point(group, name):
@@ -63,11 +61,18 @@ class Environment(object):
         return self._key_service
 
     @property
-    def secrets_table(self):
-        return self.dynamodb.Table(self.table_name)
+    def storage_service(self):
+        if not self._storage_service:
+            cls = self.load_entry_point('credsmash.storage_service', self.storage_service_name)
+            self._storage_service = cls(
+                session=self.session,
+                **self.storage_service_config
+            )
+            logger.debug('storage_service=%r', self._storage_service)
+        return self._storage_service
 
     def __repr__(self):
-        return 'Environment(table_name=%r,key_service=%r)' % (self.table_name, self._key_service)
+        return 'Environment(storage_service=%r,key_service=%r)' % (self._storage_service, self._key_service)
 
 
 @click.group()
@@ -112,9 +117,18 @@ def main(ctx, config, table_name, key_id, context=None):
                 'key_id', config_data.get('key_id', 'alias/credsmash')
             )
 
-    config_data.setdefault('table_name', 'secret-store')
     if table_name:
-        config_data['table_name'] = table_name
+        storage_service_name = 'dynamodb'
+        storage_service_config = {
+            'table_name': table_name
+        }
+    else:
+        storage_service_name = config_data.get('storage_service', 'dynamodb')
+        storage_service_config = sections.get('credsmash:storage_service:%s' % storage_service_name, {})
+        if storage_service_name == 'dynamodb':
+            storage_service_config.setdefault(
+                'table_name', config_data.get('table_name', 'secret-store')
+            )
 
     algorithm = config_data.get('algorithm', ALGO_AES_CTR)
     algorithm_options = sections.get('credsmash:%s' % algorithm, {})
@@ -123,7 +137,8 @@ def main(ctx, config, table_name, key_id, context=None):
         level=config_data.get('log_level', 'INFO')
     )
     env = Environment(
-        config_data['table_name'],
+        storage_service_name,
+        storage_service_config,
         key_service_name,
         key_service_config,
         algorithm,
@@ -140,7 +155,7 @@ def cmd_list(ctx, pattern=None):
     List all secrets & their versions.
     """
     secrets = credsmash.api.list_secrets(
-        ctx.obj.secrets_table
+        ctx.obj.storage_service
     )
     if pattern:
         matched_names = set(fnmatch.filter((secret['name'] for secret in secrets), pattern))
@@ -168,7 +183,7 @@ def cmd_delete_one(ctx, secret_name):
     Delete every version of a single secret
     """
     credsmash.api.delete_secret(
-        ctx.obj.secrets_table, secret_name
+        ctx.obj.storage_service, secret_name
     )
 
 
@@ -180,12 +195,12 @@ def cmd_delete_many(ctx, pattern):
     Delete every version of all matching secrets
     """
     secret_names = {
-        x["name"] for x in credsmash.api.list_secrets(ctx.obj.secrets_table)
+        x["name"] for x in credsmash.api.list_secrets(ctx.obj.storage_service)
     }
     secret_names = fnmatch.filter(secret_names, pattern)
     for secret_name in secret_names:
         credsmash.api.delete_secret(
-            ctx.obj.secrets_table, secret_name
+            ctx.obj.storage_service, secret_name
         )
 
 
@@ -197,7 +212,7 @@ def cmd_prune_one(ctx, secret_name):
     Delete all but the latest version of a single secret
     """
     credsmash.api.prune_secret(
-        ctx.obj.secrets_table, secret_name
+        ctx.obj.storage_service, secret_name
     )
 
 
@@ -209,12 +224,12 @@ def cmd_prune_many(ctx, pattern):
     Delete all but the latest version of all matching secrets
     """
     secret_names = {
-        x["name"] for x in credsmash.api.list_secrets(ctx.obj.secrets_table)
+        x["name"] for x in credsmash.api.list_secrets(ctx.obj.storage_service)
     }
     secret_names = fnmatch.filter(secret_names, pattern)
     for secret_name in secret_names:
         credsmash.api.prune_secret(
-            ctx.obj.secrets_table, secret_name
+            ctx.obj.storage_service, secret_name
         )
 
 
@@ -229,7 +244,7 @@ def cmd_get_one(ctx, secret_name, destination, fmt=None, version=None):
     Fetch the latest, or a specific version of a secret
     """
     secret_value = credsmash.api.get_secret(
-        ctx.obj.secrets_table,
+        ctx.obj.storage_service,
         ctx.obj.key_service,
         secret_name,
         version=version,
@@ -248,11 +263,11 @@ def cmd_get_all(ctx, destination, fmt):
     Fetch the latest version of all secrets
     """
     secret_names = {
-        x["name"] for x in credsmash.api.list_secrets(ctx.obj.secrets_table)
+        x["name"] for x in credsmash.api.list_secrets(ctx.obj.storage_service)
     }
     secrets = {
         secret_name: credsmash.api.get_secret(
-            ctx.obj.secrets_table,
+            ctx.obj.storage_service,
             ctx.obj.key_service,
             secret_name,
         )
@@ -274,7 +289,7 @@ def cmd_find_one(ctx, pattern, destination, fmt=None, version=None):
     Find exactly one secret matching <pattern>
     """
     secret_names = {
-        x["name"] for x in credsmash.api.list_secrets(ctx.obj.secrets_table)
+        x["name"] for x in credsmash.api.list_secrets(ctx.obj.storage_service)
     }
     secret_names = fnmatch.filter(secret_names, pattern)
     if not secret_names:
@@ -284,7 +299,7 @@ def cmd_find_one(ctx, pattern, destination, fmt=None, version=None):
 
     secret_name = secret_names[0]
     secret_value = credsmash.api.get_secret(
-        ctx.obj.secrets_table,
+        ctx.obj.storage_service,
         ctx.obj.key_service,
         secret_name,
         version=version,
@@ -304,12 +319,12 @@ def cmd_find_many(ctx, pattern, destination, fmt=None):
     Find all secrets matching <pattern>
     """
     secret_names = {
-        x["name"] for x in credsmash.api.list_secrets(ctx.obj.secrets_table)
+        x["name"] for x in credsmash.api.list_secrets(ctx.obj.storage_service)
     }
     secret_names = fnmatch.filter(secret_names, pattern)
     secrets = {
         secret_name: credsmash.api.get_secret(
-            ctx.obj.secrets_table,
+            ctx.obj.storage_service,
             ctx.obj.key_service,
             secret_name,
         )
@@ -335,7 +350,7 @@ def cmd_put_one(ctx, secret_name, source, fmt=None, version=None):
     secret_value = read_one(secret_name, source, fmt)
 
     stored_version = credsmash.api.put_secret(
-        ctx.obj.secrets_table,
+        ctx.obj.storage_service,
         ctx.obj.key_service,
         secret_name,
         secret_value,
@@ -362,7 +377,7 @@ def cmd_put_many(ctx, source, fmt):
 
     for secret_name, secret_value in secrets.items():
         stored_version = credsmash.api.put_secret(
-            ctx.obj.secrets_table,
+            ctx.obj.storage_service,
             ctx.obj.key_service,
             secret_name,
             secret_value,
@@ -382,8 +397,11 @@ def cmd_setup(ctx, read_capacity, write_capacity):
     """
     Setup the credential table in AWS DynamoDB
     """
-    credsmash.api.create_secrets_table(
-        ctx.obj.dynamodb, ctx.obj.table_name,
+    #TODO - allow the dynamodb service to register it's own CLI command
+    storage_service = ctx.obj.storage_service
+    if not isinstance(storage_service, DynamoDbStorageService):
+        raise click.ClickException('Cannot setup unknown storage service')
+    storage_service.setup(
         read_capacity, write_capacity
     )
 

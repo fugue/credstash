@@ -74,7 +74,10 @@ setup(
         ],
         'credsmash.key_service': [
             'kms = credsmash.kms_key_service:KmsKeyService',
-        ]
+        ],
+        'credsmash.storage_service': [
+            'dynamodb = credsmash.dynamodb_storage_service:DynamoDbStorageService',
+        ],
     },
 
     classifiers=[

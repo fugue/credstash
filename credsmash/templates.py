@@ -68,7 +68,7 @@ def cmd_render_template(
         secrets = CachingProxy(lambda key: data[key], key_fmt)
     else:
         secrets = CachingProxy(lambda key: credsmash.api.get_secret(
-            ctx.obj.secrets_table,
+            ctx.obj.storage_service,
             ctx.obj.key_service,
             key,
         ), key_fmt)
@@ -108,7 +108,7 @@ def cmd_render_template(
         secrets = CachingProxy(lambda key: data[key], key_fmt)
     else:
         secrets = CachingProxy(lambda key: credsmash.api.get_secret(
-            ctx.obj.secrets_table,
+            ctx.obj.storage_service,
             ctx.obj.key_service,
             key,
         ), key_fmt)
