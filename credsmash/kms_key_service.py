@@ -3,10 +3,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import botocore.exceptions
 
 
-class KeyService(object):
-    def __init__(self, kms, key_id, encryption_context):
-        self.kms = kms
+class KmsKeyService(object):
+    def __init__(self, session, key_id, encryption_context=None):
+        self.kms = session.client('kms')
         self.key_id = key_id
+        if not encryption_context:
+            encryption_context = {}
         self.encryption_context = encryption_context
 
     def generate_key_data(self, number_of_bytes):
@@ -38,6 +40,9 @@ class KeyService(object):
                 msg = "Decryption error %s" % e
             raise KmsError(msg)
         return kms_response['Plaintext']
+
+    def __repr__(self):
+        return 'KmsKeyService(key_id={0},context={1})'.format(self.key_id, self.encryption_context)
 
 
 class KmsError(Exception):

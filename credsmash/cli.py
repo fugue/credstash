@@ -1,17 +1,18 @@
 from __future__ import absolute_import, division, print_function
 
+import codecs
 import fnmatch
 import logging
 import operator
-import sys
 import os
-import codecs
+import sys
 
 import boto3
 import click
+import pkg_resources
+
 import credsmash.api
 from credsmash.crypto import ALGO_AES_CTR
-from credsmash.key_service import KeyService
 from credsmash.util import set_stream_logger, detect_format, \
     parse_config, read_one, read_many, write_one, write_many
 
@@ -19,15 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 class Environment(object):
-    def __init__(self, table_name, key_id, encryption_context, algorithm, algorithm_options):
+    def __init__(self, table_name, key_service_name, key_service_config, algorithm, algorithm_options):
         self.table_name = table_name
-        self.key_id = key_id
-        self.encryption_context = encryption_context
+        self._key_service = None
+        self.key_service_name = key_service_name
+        self.key_service_config = key_service_config
         self.algorithm = algorithm
         self.algorithm_options = algorithm_options
         self._session = None
         self._dynamodb = None
-        self._kms = None
 
     @property
     def session(self):
@@ -41,22 +42,32 @@ class Environment(object):
             self._dynamodb = self.session.resource('dynamodb')
         return self._dynamodb
 
-    @property
-    def kms(self):
-        if self._kms is None:
-            self._kms = self.session.client('kms')
-        return self._kms
+    @staticmethod
+    def load_entry_point(group, name):
+        entry_points = pkg_resources.iter_entry_points(
+            group, name
+        )
+        for entry_point in entry_points:
+            return entry_point.load()
+        raise RuntimeError('Not found EntryPoint(group={0},name={1})'.format(group, name))
 
     @property
     def key_service(self):
-        return KeyService(self.kms, self.key_id, self.encryption_context)
+        if not self._key_service:
+            cls = self.load_entry_point('credsmash.key_service', self.key_service_name)
+            self._key_service = cls(
+                session=self.session,
+                **self.key_service_config
+            )
+            logger.debug('key_service=%r', self._key_service)
+        return self._key_service
 
     @property
     def secrets_table(self):
         return self.dynamodb.Table(self.table_name)
 
     def __repr__(self):
-        return 'Environment(table_name=%r,key_id=%r,ctx=%r)' % (self.table_name, self.key_id, self.encryption_context)
+        return 'Environment(table_name=%r,key_service=%r)' % (self.table_name, self._key_service)
 
 
 @click.group()
@@ -71,7 +82,9 @@ class Environment(object):
               help="the KMS key-id of the master key "
                    "to use. See the README for more "
                    "information. Defaults to alias/credsmash")
-@click.option('--context', type=(unicode, unicode), multiple=True)
+@click.option('--context', type=(unicode, unicode), multiple=True,
+              help="the KMS encryption context to use."
+                   "Only works if --key-id is passed.")
 @click.pass_context
 def main(ctx, config, table_name, key_id, context=None):
     config_data = {}
@@ -80,18 +93,28 @@ def main(ctx, config, table_name, key_id, context=None):
         with codecs.open(config, 'r') as config_fp:
             sections = parse_config(config_fp)
             config_data = sections.get('credsmash', {})
-            config_data['encryption_context'] = sections.get('credsmash:encryption_context', {})
+
+    if key_id:
+        # Using --key-id/-k will ignore the configuration file.
+        key_service_name = 'kms'
+        key_service_config = {
+            'key_id': key_id
+        }
+        if context:
+            key_service_config['encryption_context'] = dict(context)
+    else:
+        if context:
+            logger.warning('--context can only be used in conjunction with --key-id')
+        key_service_name = config_data.get('key_service', 'kms')
+        key_service_config = sections.get('credsmash:key_service:%s' % key_service_name, {})
+        if key_service_name == 'kms':
+            key_service_config.setdefault(
+                'key_id', config_data.get('key_id', 'alias/credsmash')
+            )
 
     config_data.setdefault('table_name', 'secret-store')
     if table_name:
         config_data['table_name'] = table_name
-    config_data.setdefault('key_id', 'alias/credsmash')
-    if key_id:
-        config_data['key_id'] = key_id
-    config_data.setdefault('encryption_context', {})
-    if context:
-        # Start with the existing context, and append the new values to it
-        config_data['encryption_context'].update(dict(context))
 
     algorithm = config_data.get('algorithm', ALGO_AES_CTR)
     algorithm_options = sections.get('credsmash:%s' % algorithm, {})
@@ -100,10 +123,12 @@ def main(ctx, config, table_name, key_id, context=None):
         level=config_data.get('log_level', 'INFO')
     )
     env = Environment(
-        config_data['table_name'], config_data['key_id'], config_data['encryption_context'],
-        algorithm, algorithm_options
+        config_data['table_name'],
+        key_service_name,
+        key_service_config,
+        algorithm,
+        algorithm_options
     )
-    logger.debug('environment=%r', env)
     ctx.obj = env
 
 

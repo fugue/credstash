@@ -24,16 +24,17 @@
    ```cfg
    [credsmash]
    table_name = dev-credential-store
+   [credsmash:key_service:kms]
    key_id = dev-credkey
-   [credsmash:encryption_context]
-   environment=production
-   purpose=web
+   encryption_context =
+     environment = production
+     purpose = web
    ```
 
    You can override this by providing the `--table-name` and `--key-id` parameters to each command.
     
-   If you provide `--context` to a command, it will only append each key-value pair to the context,
-   rather than overwriting it completely.
+   Providing `--context` via the CLI will only work if manually specifying the `--key-id`, otherwise
+   it will read from the configuration file.
 
  - The signatures of nearly every command has changed,
  
@@ -113,3 +114,14 @@
       group: root
     ```
 
+ - You can define alternative key-services, by using the `credsmash.key_service` [entry point](http://setuptools.readthedocs.io/en/latest/pkg_resources.html#entry-points).
+ 
+	eg, to load a key service called `custom_ks`
+	
+   ```cfg
+   [credsmash]
+   key_service = custom_ks
+   [credsmash:key_service:custom_ks]
+   option_1 = a
+   option_2 = b
+   ```

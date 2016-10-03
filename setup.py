@@ -71,6 +71,9 @@ setup(
     entry_points={
         'console_scripts': [
             'credsmash = credsmash.cli:main'
+        ],
+        'credsmash.key_service': [
+            'kms = credsmash.kms_key_service:KmsKeyService',
         ]
     },
 
