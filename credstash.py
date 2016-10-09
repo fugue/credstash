@@ -205,7 +205,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     return response["Items"]
 
 
-def putSecret(name, secret, version, kms_key="alias/credstash",
+def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
               digest="SHA256", **kwargs):
     '''
