@@ -177,8 +177,8 @@ optional arguments:
                         set, us-east-1
   -t TABLE, --table TABLE
                         DynamoDB table to use for credential storage
-```
   -n ARN, --arn ARN     AWS IAM ARN for AssumeRole
+```
 ## IAM Policies
 
 ### Secret Writer
