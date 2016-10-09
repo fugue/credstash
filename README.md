@@ -32,7 +32,7 @@ Credentials stored in the credential-store are versioned and immutable. That is,
 If you use incrementing integer version numbers (for example, `[1, 2, 3, ...]`), then you can use the `-a` flag with the `put` command to automatically increment the version number. However, because of the lexicographical sorting in DynamoDB, `credstash` will left-pad the version representation with zeros (for example, `[001, 025, 103, ...]`, except to 19 characters, enough to handle `sys.maxint` on 64-bit systems).
 
 #### Special Note for Those Using Credstash Auto-Versioning Before December 2015
-Prior to December 2015, `credstash` auto-versioned with unpadded integers. This resulted in a sorting error once a key hit ten versions. To ensure support for dates that were not numbers (such as dates, build versions, names, etc.), the lexicographical sorting behavior was retained, but the auto-versioning behavior was changed to left-pad integer representations.
+Prior to December 2015, `credstash` auto-versioned with unpadded integers. This resulted in a sorting error once a key hit ten versions. To ensure support for versions that were not numbers (such as dates, build versions, names, etc.), the lexicographical sorting behavior was retained, but the auto-versioning behavior was changed to left-pad integer representations.
 
 If you've used auto-versioning so far, you should run the `credstash-migrate-autoversion.py` script included in the root of the repository. If you are supplying your own version numbers, you should ensure a lexicographic sort of your versions produces the result you desire.
 
