@@ -44,6 +44,8 @@ class CachingProxy(object):
 @click.option('--key-fmt', default='{0}',
               help='Re-use templates by tweaking which variable it maps to- '
                    'eg, "dev.{0}" converts {{secrets.potato}} to the secret "dev.potato"')
+@click.option('--template-vars', type=click.File(mode='rb'))
+@click.option('--template-vars-format', default=None)
 @click.option('--secrets-file', type=click.File(mode='rb'),
               help="Source from a local file instead of credential store "
                    "(useful for caching/testing)")
@@ -52,6 +54,7 @@ class CachingProxy(object):
 def cmd_render_template(
         ctx, template, destination,
         obj_name='secrets', key_fmt='{0}',
+        template_vars=None, template_vars_format=None,
         secrets_file=None, secrets_file_format=None
 ):
     """
@@ -69,10 +72,17 @@ def cmd_render_template(
             key,
         ), key_fmt)
 
+    render_args = {}
+    if template_vars:
+        if not template_vars_format:
+            template_vars_format = detect_format(template_vars, 'json')
+        render_args = read_many(template_vars, template_vars_format)
+    if obj_name in render_args:
+        logger.warning('Overwrote %r from template vars with secrets var.', obj_name)
+    render_args[obj_name] = secrets
+
     env = _make_env()
-    output = env.from_string(template.read()).render(**{
-        obj_name: secrets
-    })
+    output = env.from_string(template.read()).render(render_args)
     destination.write(output)
 
 
@@ -84,6 +94,8 @@ def cmd_render_template(
 @click.option('--key-fmt', default='{0}',
               help='Re-use templates by tweaking which variable it maps to- '
                    'eg, "dev.{0}" converts {{secrets.potato}} to the secret "dev.potato"')
+@click.option('--template-vars', type=click.File(mode='rb'))
+@click.option('--template-vars-format', default=None)
 @click.option('--secrets-file', type=click.File(mode='rb'),
               help="Source from a local file instead of credential store "
                    "(useful for caching/testing)")
@@ -92,6 +104,7 @@ def cmd_render_template(
 def cmd_render_template(
         ctx, manifest, manifest_format=None,
         obj_name='secrets', key_fmt='{0}',
+        template_vars=None, template_vars_format=None,
         secrets_file=None, secrets_file_format=None
 ):
     """
@@ -109,15 +122,22 @@ def cmd_render_template(
             key,
         ), key_fmt)
 
+    render_args = {}
+    if template_vars:
+        if not template_vars_format:
+            template_vars_format = detect_format(template_vars, 'json')
+        render_args = read_many(template_vars, template_vars_format)
+    if obj_name in render_args:
+        logger.warning('Overwrote %r from template vars with secrets var.', obj_name)
+    render_args[obj_name] = secrets
+
     env = _make_env()
     if not manifest_format:
         manifest_format = detect_format(manifest, 'json')
     for entry in parse_manifest(manifest, manifest_format):
         if 'source' in entry:
             with codecs.open(entry['source'], 'r', encoding='utf-8') as template:
-                output = env.from_string(template.read()).render(**{
-                    obj_name: secrets
-                })
+                output = env.from_string(template.read()).render(render_args)
             # Only open the file after rendering the template
             #  as we truncate the file when opening.
             with codecs.open(entry['destination'], 'w', encoding='utf-8') as destination:
