@@ -44,24 +44,24 @@ class CachingProxy(object):
 @click.option('--key-fmt', default='{0}',
               help='Re-use templates by tweaking which variable it maps to- '
                    'eg, "dev.{0}" converts {{secrets.potato}} to the secret "dev.potato"')
-@click.option('--data-file', type=click.File(mode='rb'),
-              help="Source from data file instead of credential store "
+@click.option('--secrets-file', type=click.File(mode='rb'),
+              help="Source from a local file instead of credential store "
                    "(useful for caching/testing)")
-@click.option('--data-file-format', default=None)
+@click.option('--secrets-file-format', default=None)
 @click.pass_context
 def cmd_render_template(
         ctx, template, destination,
         obj_name='secrets', key_fmt='{0}',
-        data_file=None, data_file_format=None
+        secrets_file=None, secrets_file_format=None
 ):
     """
     Render a configuration template....
     """
-    if data_file:
-        if not data_file_format:
-            data_file_format = detect_format(data_file, 'json')
-        data = read_many(data_file, data_file_format)
-        secrets = CachingProxy(lambda key: data[key], key_fmt)
+    if secrets_file:
+        if not secrets_file_format:
+            secrets_file_format = detect_format(secrets_file, 'json')
+        local_secrets = read_many(secrets_file, secrets_file_format)
+        secrets = CachingProxy(lambda key: local_secrets[key], key_fmt)
     else:
         secrets = CachingProxy(lambda key: credsmash.api.get_secret(
             ctx.obj.storage_service,
@@ -84,24 +84,24 @@ def cmd_render_template(
 @click.option('--key-fmt', default='{0}',
               help='Re-use templates by tweaking which variable it maps to- '
                    'eg, "dev.{0}" converts {{secrets.potato}} to the secret "dev.potato"')
-@click.option('--data-file', type=click.File(mode='rb'),
-              help="Source from data file instead of credential store "
+@click.option('--secrets-file', type=click.File(mode='rb'),
+              help="Source from a local file instead of credential store "
                    "(useful for caching/testing)")
-@click.option('--data-file-format', default=None)
+@click.option('--secrets-file-format', default=None)
 @click.pass_context
 def cmd_render_template(
         ctx, manifest, manifest_format=None,
         obj_name='secrets', key_fmt='{0}',
-        data_file=None, data_file_format=None
+        secrets_file=None, secrets_file_format=None
 ):
     """
     Render multiple configuration templates - reads from a manifest file.
     """
-    if data_file:
-        if not data_file_format:
-            data_file_format = detect_format(data_file, 'json')
-        data = read_many(data_file, data_file_format)
-        secrets = CachingProxy(lambda key: data[key], key_fmt)
+    if secrets_file:
+        if not secrets_file_format:
+            secrets_file_format = detect_format(secrets_file, 'json')
+        local_secrets = read_many(secrets_file, secrets_file_format)
+        secrets = CachingProxy(lambda key: local_secrets[key], key_fmt)
     else:
         secrets = CachingProxy(lambda key: credsmash.api.get_secret(
             ctx.obj.storage_service,
