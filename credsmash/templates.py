@@ -113,14 +113,23 @@ def cmd_render_template(
     if not manifest_format:
         manifest_format = detect_format(manifest, 'json')
     for entry in parse_manifest(manifest, manifest_format):
-        with codecs.open(entry['source'], 'r', encoding='utf-8') as template:
-            output = env.from_string(template.read()).render(**{
-                obj_name: secrets
-            })
-        # Only open the file after rendering the template
-        #  as we truncate the file when opening.
-        with codecs.open(entry['destination'], 'w', encoding='utf-8') as destination:
-            destination.write(output)
+        if 'source' in entry:
+            with codecs.open(entry['source'], 'r', encoding='utf-8') as template:
+                output = env.from_string(template.read()).render(**{
+                    obj_name: secrets
+                })
+            # Only open the file after rendering the template
+            #  as we truncate the file when opening.
+            with codecs.open(entry['destination'], 'w', encoding='utf-8') as destination:
+                destination.write(output)
+            logger.info('Rendered template="%s" destination="%s"', entry['source'], entry['destination'])
+        elif 'secret' in entry:
+            output = secrets[entry['secret']]
+            with open(entry['destination'], 'wb') as destination:
+                destination.write(output)
+            logger.info('Wrote secret="%s" destination="%s"', entry['secret'], entry['destination'])
+        else:
+            raise RuntimeError('Manifest entry must contain a secret or source')
 
         if 'mode' in entry:
             os.chmod(
@@ -134,7 +143,6 @@ def cmd_render_template(
                 pwd.getpwnam(entry['owner']).pw_uid,
                 grp.getgrnam(entry['group']).gr_gid
             )
-        logger.info('Rendered template="%s" destination="%s"', entry['source'], entry['destination'])
 
 
 def _make_env():
