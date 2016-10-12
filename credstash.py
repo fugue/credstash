@@ -143,6 +143,14 @@ def csv_dump(dictionary):
     return csvfile.getvalue()
 
 
+def dotenv_dump(dictionary):
+    dotenv_buffer = StringIO()
+    for key in dictionary:
+        dotenv_buffer.write("%s=%s\n" % (key.upper(), dictionary[key]))
+    dotenv_buffer.seek(0)
+    return dotenv_buffer.read()
+
+
 def paddedInt(i):
     '''
     return a string that contains `i`, left-padded with 0's up to PAD_LEN digits
@@ -287,6 +295,9 @@ def getAllAction(args, region, **session_params):
         output_args = {"default_flow_style": False}
     elif args.format == 'csv':
         output_func = csv_dump
+        output_args = {}
+    elif args.format == 'dotenv':
+        output_func = dotenv_dump
         output_args = {}
     print(output_func(secrets, **output_args))
 
@@ -620,10 +631,10 @@ def get_parser():
                                  help="Get a specific version of the "
                                  "credential (defaults to the latest version)")
     parsers[action].add_argument("-f", "--format", default="json",
-                                 choices=["json", "csv"] +
+                                 choices=["json", "csv", "dotenv"] +
                                  ([] if NO_YAML else ["yaml"]),
                                  help="Output format. json(default) " +
-                                 ("" if NO_YAML else "yaml ") + "or csv.")
+                                 ("" if NO_YAML else "yaml ") + " csv or dotenv.")
     parsers[action].set_defaults(action=action)
 
     action = 'list'
