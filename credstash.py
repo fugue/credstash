@@ -39,7 +39,7 @@ except ImportError:
 from base64 import b64encode, b64decode
 from boto3.dynamodb.conditions import Attr
 from Crypto.Cipher import AES
-from Crypto.Hash import *
+from Crypto.Hash import *  # noqa
 from Crypto.Hash.HMAC import HMAC
 from Crypto.Util import Counter
 from types import ModuleType
