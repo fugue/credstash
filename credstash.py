@@ -146,7 +146,7 @@ def csv_dump(dictionary):
 def dotenv_dump(dictionary):
     dotenv_buffer = StringIO()
     for key in dictionary:
-        dotenv_buffer.write(key.upper() + "=" + dictionary[key])
+        dotenv_buffer.write("%s=%s\n" % (key.upper(), dictionary[key]))
     dotenv_buffer.seek(0)
     return dotenv_buffer.read()
 
