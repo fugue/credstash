@@ -220,15 +220,48 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
+    session = get_session(**kwargs)
+
+    key, contents, hmac = encrypt(
+        session=session,
+        secret=secret,
+        kms_key=kms_key,
+        digest=digest,
+        region=region,
+        context=context,
+    )
+
+    dynamodb = session.resource('dynamodb', region_name=region)
+    secrets = dynamodb.Table(table)
+
+    data = {}
+    data['name'] = name
+    data['version'] = version if version != "" else paddedInt(1)
+    data['key'] = key
+    data['contents'] = contents
+    data['hmac'] = hmac
+    data['digest'] = digest
+
+    return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
+
+
+def encrypt(session, secret, kms_key, digest, region=None, context=None):
+    """
+    Encrypt the given `secret` with the provided `kms_key`
+
+    """
     if not context:
         context = {}
-    session = get_session(**kwargs)
+
     kms = session.client('kms', region_name=region)
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
     try:
         kms_response = kms.generate_data_key(
-            KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
+            KeyId=kms_key,
+            EncryptionContext=context,
+            NumberOfBytes=64,
+        )
     except:
         raise KmsError("Could not generate key using KMS key %s" % kms_key)
     data_key = kms_response['Plaintext'][:32]
@@ -244,18 +277,11 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
     b64hmac = hmac.hexdigest()
 
-    dynamodb = session.resource('dynamodb', region_name=region)
-    secrets = dynamodb.Table(table)
-
-    data = {}
-    data['name'] = name
-    data['version'] = version if version != "" else paddedInt(1)
-    data['key'] = b64encode(wrapped_key).decode('utf-8')
-    data['contents'] = b64encode(c_text).decode('utf-8')
-    data['hmac'] = b64hmac
-    data['digest'] = digest
-
-    return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
+    return (
+        b64encode(wrapped_key).decode('utf-8'),
+        b64encode(c_text).decode('utf-8'),
+        b64hmac,
+    )
 
 
 def getAllSecrets(version="", region=None, table="credential-store",
@@ -375,9 +401,6 @@ def getSecret(name, version="", region=None,
     '''
     fetch and decrypt the secret called `name`
     '''
-    if not context:
-        context = {}
-
     session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
@@ -398,11 +421,32 @@ def getSecret(name, version="", region=None,
                 "Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
 
+    return decrypt(
+        session=session,
+        material=material,
+        region=region,
+        context=context,
+    )
+
+
+def decrypt(session, material, region=None, context=None):
+    """
+    Decrypt the secret represented by `material`.
+
+    """
+    if not context:
+        context = {}
+
     kms = session.client('kms', region_name=region)
+
     # Check the HMAC before we decrypt to verify ciphertext integrity
     try:
-        kms_response = kms.decrypt(CiphertextBlob=b64decode(
-            material['key']), EncryptionContext=context)
+        kms_response = kms.decrypt(
+            CiphertextBlob=b64decode(
+                material['key'],
+            ),
+            EncryptionContext=context,
+        )
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Code"] == "InvalidCiphertextException":
             if context is None:
@@ -418,6 +462,7 @@ def getSecret(name, version="", region=None,
         raise KmsError(msg)
     except Exception as e:
         raise KmsError("Decryption error %s" % e)
+
     # Check for the existence of a digest value
     if 'digest' in material:
         digest = material['digest']
@@ -426,15 +471,17 @@ def getSecret(name, version="", region=None,
 
     key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
-    hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=get_digest(digest))
+    hmac = HMAC(
+        hmac_key,
+        msg=b64decode(material['contents']),
+        digestmod=get_digest(digest),
+    )
     if hmac.hexdigest() != material['hmac']:
-        raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
-                             % name)
+        raise IntegrityError("Computed HMAC does not match stored HMAC")
+
     dec_ctr = Counter.new(128)
     decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
-    plaintext = decryptor.decrypt(
-        b64decode(material['contents'])).decode("utf-8")
+    plaintext = decryptor.decrypt(b64decode(material['contents'])).decode("utf-8")
     return plaintext
 
 
