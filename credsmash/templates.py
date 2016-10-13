@@ -11,29 +11,62 @@ import click
 import jinja2.sandbox
 
 import credsmash.api
-from .util import read_many, shell_quote, parse_manifest, detect_format
+from .util import read_many, shell_quote, parse_manifest, detect_format, ItemNotFound
 from .cli import main
 
 logger = logging.getLogger(__name__)
 
 
-class CachingProxy(object):
-    def __init__(self, getter, key_fmt):
-        self._getter = getter
+class CredsmashProxy(object):
+    def __init__(self, key_service, storage_service, key_fmt):
+        self._key_service = key_service
+        self._storage_service = storage_service
         self._key_fmt = key_fmt
         self._data = {}
 
     def __getitem__(self, key):
-        if key not in self._data:
-            if isinstance(key, tuple):
-                lookup_key = self._key_fmt.format(*key)
-            else:
-                lookup_key = self._key_fmt.format(key)
-            logger.debug('key=%s lookup_key=%s', key, lookup_key)
-            res = self._getter(lookup_key)
-            self._data[key] = res
-            return res
-        return self._data[key]
+        if key in self._data:
+            return self._data[key]
+
+        if isinstance(key, tuple):
+            lookup_key = self._key_fmt.format(*key)
+        else:
+            lookup_key = self._key_fmt.format(key)
+        logger.debug('key=%s lookup_key=%s', key, lookup_key)
+        res = credsmash.api.get_secret(
+            self._storage_service,
+            self._key_service,
+            key,
+        )
+        self._data[key] = res
+        return res
+
+    def __contains__(self, key):
+        try:
+            self.__getitem__(key)
+            return True
+        except ItemNotFound:
+            return False
+
+
+class DictProxy(object):
+    def __init__(self, items, key_fmt):
+        self._items = items
+        self._key_fmt = key_fmt
+
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            lookup_key = self._key_fmt.format(*key)
+        else:
+            lookup_key = self._key_fmt.format(key)
+        return self._items[lookup_key]
+
+    def __contains__(self, key):
+        try:
+            self.__getitem__(key)
+            return True
+        except KeyError:
+            return False
 
 
 @main.command('render-template')
@@ -64,13 +97,13 @@ def cmd_render_template(
         if not secrets_file_format:
             secrets_file_format = detect_format(secrets_file, 'json')
         local_secrets = read_many(secrets_file, secrets_file_format)
-        secrets = CachingProxy(lambda key: local_secrets[key], key_fmt)
+        secrets = DictProxy(local_secrets, key_fmt)
     else:
-        secrets = CachingProxy(lambda key: credsmash.api.get_secret(
+        secrets = CredsmashProxy(
             ctx.obj.storage_service,
             ctx.obj.key_service,
-            key,
-        ), key_fmt)
+            key_fmt,
+        )
 
     render_args = {}
     if template_vars:
@@ -114,13 +147,13 @@ def cmd_render_template(
         if not secrets_file_format:
             secrets_file_format = detect_format(secrets_file, 'json')
         local_secrets = read_many(secrets_file, secrets_file_format)
-        secrets = CachingProxy(lambda key: local_secrets[key], key_fmt)
+        secrets = DictProxy(local_secrets, key_fmt)
     else:
-        secrets = CachingProxy(lambda key: credsmash.api.get_secret(
-            ctx.obj.storage_service,
+        secrets = CredsmashProxy(
             ctx.obj.key_service,
-            key,
-        ), key_fmt)
+            ctx.obj.storage_service,
+            key_fmt,
+        )
 
     render_args = {}
     if template_vars:
