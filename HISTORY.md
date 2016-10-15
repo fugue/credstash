@@ -140,3 +140,20 @@
 
  - By default `credsmash put` will check if the value of a secret has changed. Use `--version` or `--no-compare` to
    avoid this comparison.
+
+ - `credsmash` has a straight-forward API for pythonic access.
+ 
+   ```py
+   import credsmash
+   # Auto-configure a session from your 
+   # /etc/credsmash.cfg or CREDSMASH_CONFIG environment variable
+   session = credsmash.get_session()
+   # or, provide options directly-
+   session = credsmash.get_session(table_name='my-dynamodb-table', key_id='my-key')
+
+   # Access a secret
+   plaintext = session.get_one('my_secret')
+   # search for secrets
+   secret_name, plaintext = session.find_one('s3_prod_*')
+   secrets = session.find_many('s3_*')
+   ```

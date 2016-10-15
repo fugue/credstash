@@ -11,7 +11,6 @@ import pwd
 import click
 import jinja2.sandbox
 
-import credsmash.api
 from .util import read_many, read_many_str, minjson, envfile_quote, shell_quote, parse_manifest, detect_format, ItemNotFound
 from .cli import main
 
@@ -19,9 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class CredsmashProxy(object):
-    def __init__(self, key_service, storage_service, key_fmt, encoding='utf-8', errors='strict'):
-        self._key_service = key_service
-        self._storage_service = storage_service
+    def __init__(self, session, key_fmt, encoding='utf-8', errors='strict'):
+        self.session = session
         self._key_fmt = key_fmt
         self._data = {}
         self._encoding = encoding
@@ -47,11 +45,7 @@ class CredsmashProxy(object):
             lookup_key = self._key_fmt.format(key)
         logger.debug('key=%s lookup_key=%s', key, lookup_key)
         try:
-            res = credsmash.api.get_secret(
-                self._storage_service,
-                self._key_service,
-                key,
-            )
+            res = self.session.get_one(key)
         except ItemNotFound:
             raise KeyError(repr(key))
         self._data[key] = res
@@ -128,8 +122,7 @@ def cmd_render_template(
         secrets = DictProxy(local_secrets, key_fmt)
     else:
         secrets = CredsmashProxy(
-            ctx.obj.key_service,
-            ctx.obj.storage_service,
+            ctx.obj,
             key_fmt,
         )
 
@@ -178,8 +171,7 @@ def cmd_render_template(
         secrets = DictProxy(local_secrets, key_fmt)
     else:
         secrets = CredsmashProxy(
-            ctx.obj.key_service,
-            ctx.obj.storage_service,
+            ctx.obj,
             key_fmt,
         )
 

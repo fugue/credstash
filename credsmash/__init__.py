@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright 2015 Luminal, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,5 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pkg_resources
-__version__ = pkg_resources.resource_string(__name__, 'VERSION')
+__version__ = __import__('pkg_resources').resource_string(__name__, 'VERSION')
+
+from .core import get_session, Credsmash

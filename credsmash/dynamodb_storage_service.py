@@ -58,7 +58,7 @@ class DynamoDbStorageService(object):
             ExpressionAttributeNames={"#N": "name"}
         )
         return [
-            self._unwrap_doc(item)
+            (item['name'], self._unwrap_int(item['version']),)
             for item in items
         ]
 
@@ -68,7 +68,7 @@ class DynamoDbStorageService(object):
             ExpressionAttributeNames={"#N": "name"}
         )
         return [
-            self._unwrap_doc(item)
+            (item['name'], self._unwrap_int(item['version']),)
             for item in items
         ]
 
@@ -89,13 +89,7 @@ class DynamoDbStorageService(object):
             ConditionExpression=Attr('name').not_exists()
         )
 
-    def get_one(self, name, version=None):
-        if not version:
-            return self._get_latest_secret(name)
-        else:
-            return self._get_versioned_secret(name, version)
-
-    def _get_latest_secret(self, secret_name):
+    def get_latest(self, secret_name):
         # do a consistent fetch of the credential with the highest version
         response = self.secrets_table.query(
             Limit=1,
@@ -104,15 +98,21 @@ class DynamoDbStorageService(object):
             KeyConditionExpression=ConditionKey("name").eq(secret_name)
         )
         if response["Count"] == 0:
-            return
-        return self._unwrap_doc(response["Items"][0])
+            return None, None
+        ciphertext = self._unwrap_doc(response["Items"][0])
+        assert ciphertext.pop('name') == secret_name
+        version = ciphertext.pop('version')
+        return version, ciphertext
 
-    def _get_versioned_secret(self, secret_name, version):
+    def get_one(self, secret_name, version):
         version = self._wrap_int(version)
         response = self.secrets_table.get_item(Key={"name": secret_name, "version": version})
         if "Item" not in response:
             return
-        return self._unwrap_doc(response["Item"])
+        ciphertext = self._unwrap_doc(response["Item"])
+        assert ciphertext.pop('name') == secret_name
+        assert ciphertext.pop('version') == version
+        return ciphertext
 
     @classmethod
     def _unwrap_doc(cls, obj):
