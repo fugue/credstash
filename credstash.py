@@ -585,8 +585,7 @@ def get_parser():
                                                  '"{name} get -h" or "{name}'
                                                  'put --help" to get each'
                                                  'sub command\'s options'
-                                                 .format(name=os.path.basename(
-                                                         __file__)))
+                                                 .format(name=sys.argv[0]))
 
     action = 'delete'
     parsers[action] = subparsers.add_parser(action,
