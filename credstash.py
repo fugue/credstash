@@ -565,7 +565,7 @@ def get_parser():
         description="A credential/secret storage system")
 
     parsers['super'].add_argument("-r", "--region",
-                                  help="the AWS region in which to operate."
+                                  help="the AWS region in which to operate. "
                                   "If a region is not specified, credstash "
                                   "will use the value of the "
                                   "AWS_DEFAULT_REGION env variable, "
@@ -582,15 +582,14 @@ def get_parser():
     role_parse.add_argument("-n", "--arn", default=None,
                             help="AWS IAM ARN for AssumeRole")
     subparsers = parsers['super'].add_subparsers(help='Try commands like '
-                                                 '"{name} get -h" or "{name}'
-                                                 'put --help" to get each'
+                                                 '"{name} get -h" or "{name} '
+                                                 'put --help" to get each '
                                                  'sub command\'s options'
                                                  .format(name=sys.argv[0]))
 
     action = 'delete'
     parsers[action] = subparsers.add_parser(action,
-                                            help='Delete a credential " \
-                                            "from the store')
+                                            help='Delete a credential from the store')
     parsers[action].add_argument("credential", type=str,
                                  help="the name of the credential to delete")
     parsers[action].set_defaults(action=action)
