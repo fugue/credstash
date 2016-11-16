@@ -32,25 +32,44 @@ class DynamoDbStorageService(object):
             self._secrets_table = self.dynamodb.Table(self.table_name)
         return self._secrets_table
 
+    def _scan_all(self, **scan_kwargs):
+        if 'ExclusiveStartKey' in scan_kwargs:
+            raise ValueError()
+
+        scan_kwargs = scan_kwargs.copy()
+        all_items = []
+        while True:
+            response = self.secrets_table.scan(
+                **scan_kwargs
+            )
+            all_items += response['Items']
+            last_evaluated_key = response.get('LastEvaluatedKey')
+            if last_evaluated_key:
+                # This is only triggered if you have > 1mb of list data.
+                scan_kwargs['ExclusiveStartKey'] = last_evaluated_key
+                logger.debug('Fetching next page: %r', last_evaluated_key)
+                continue
+            return all_items
+
     def list_one(self, name):
-        response = self.secrets_table.scan(
+        items = self._scan_all(
             FilterExpression=Attr("name").eq(name),
             ProjectionExpression="#N, version",
             ExpressionAttributeNames={"#N": "name"}
         )
         return [
             self._unwrap_doc(item)
-            for item in response['Items']
+            for item in items
         ]
 
     def list_all(self):
-        response = self.secrets_table.scan(
+        items = self._scan_all(
             ProjectionExpression="#N, version",
             ExpressionAttributeNames={"#N": "name"}
         )
         return [
             self._unwrap_doc(item)
-            for item in response['Items']
+            for item in items
         ]
 
     def delete_one(self, name, version):
