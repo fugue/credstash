@@ -229,8 +229,8 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     try:
         kms_response = kms.generate_data_key(
             KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
-    except:
-        raise KmsError("Could not generate key using KMS key %s" % kms_key)
+    except Exception as e:
+        raise KmsError("Could not generate key using KMS key %s (Detail: %s)" % (kms_key, e.message))
     data_key = kms_response['Plaintext'][:32]
     hmac_key = kms_response['Plaintext'][32:]
     wrapped_key = kms_response['CiphertextBlob']
