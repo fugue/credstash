@@ -575,6 +575,10 @@ def get_parser():
     parsers['super'].add_argument("-t", "--table", default="credential-store",
                                   help="DynamoDB table to use for "
                                   "credential storage")
+    parsers['super'].add_argument("-k", "--key", default="alias/credstash",
+                                  help="the KMS key-id of the master key "
+                                  "to use. See the README for more "
+                                  "information. Defaults to alias/credstash")
     role_parse = parsers['super'].add_mutually_exclusive_group()
     role_parse.add_argument("-p", "--profile", default=None,
                             help="Boto config profile to use when "
@@ -660,10 +664,6 @@ def get_parser():
                                  help="encryption context key/value pairs "
                                  "associated with the credential in the form "
                                  "of \"key=value\"")
-    parsers[action].add_argument("-k", "--key", default="alias/credstash",
-                                 help="the KMS key-id of the master key "
-                                 "to use. See the README for more "
-                                 "information. Defaults to alias/credstash")
     parsers[action].add_argument("-v", "--version", default="",
                                  help="Put a specific version of the "
                                  "credential (update the credential; "
