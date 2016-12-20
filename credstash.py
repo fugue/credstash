@@ -270,9 +270,9 @@ def getAllSecrets(version="", region=None, table="credential-store",
     # This already works out of the box with the CLI get action,
     # but that action doesn't support wildcards when using as library
     if credential and WILDCARD_CHAR in credential:
-            names = set(expand_wildcard(credential,
-                                        [x["name"]
-                                        for x in secrets]))
+        names = set(expand_wildcard(credential,
+                                    [x["name"]
+                                    for x in secrets]))
     else:
         names = set(x["name"] for x in secrets)
 
