@@ -5,7 +5,7 @@ python:
   - "3.2"
   - "3.3"
   - "3.4"
-  - "pypy"
+  - "pypy-5.4"
 install:
   - pip install -r requirements.txt
 script: nosetests 
