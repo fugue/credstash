@@ -76,7 +76,7 @@ class KeyService(object):
                 KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=number_of_bytes
             )
         except Exception as e:
-            raise KmsError("Could not generate key using KMS key %s (Detail: %s)" % (kms_key, e.message))
+            raise KmsError("Could not generate key using KMS key %s (Detail: %s)" % (self.key_id, e.message))
         return kms_response['Plaintext'], kms_response['CiphertextBlob']
 
     def decrypt(self, encoded_key):
