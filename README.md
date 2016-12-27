@@ -15,7 +15,7 @@ Some organizations build complete credential-management systems, but for most of
 CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management Service (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
 
 ## Compatibility with Other Languages 
-A numbe of great projects exist to provide credstash compatability with other languages. Here are the ones that we know about (feel free to open a pull request if you know of another):
+A number of great projects exist to provide credstash compatability with other languages. Here are the ones that we know about (feel free to open a pull request if you know of another):
 
 - https://github.com/jessecoyle/jcredstash (Java)
 - https://github.com/adorechic/rcredstash (Ruby)
