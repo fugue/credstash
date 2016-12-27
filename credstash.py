@@ -292,13 +292,24 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
 
 def getAllSecrets(version="", region=None, table="credential-store",
-                  context=None, **kwargs):
+                  context=None, credential=None, **kwargs):
     '''
     fetch and decrypt all secrets
     '''
     output = {}
     secrets = listSecrets(region, table, **kwargs)
-    for credential in set([x["name"] for x in secrets]):
+
+    # Only return the secrets that match the pattern in `credential`
+    # This already works out of the box with the CLI get action,
+    # but that action doesn't support wildcards when using as library
+    if credential and WILDCARD_CHAR in credential:
+        names = set(expand_wildcard(credential,
+                                    [x["name"]
+                                    for x in secrets]))
+    else:
+        names = set(x["name"] for x in secrets)
+
+    for credential in names:
         try:
             output[credential] = getSecret(credential,
                                            version,
