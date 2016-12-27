@@ -264,7 +264,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              digest="SHA256", **kwargs):
+              digest=DEFAULT_DIGEST, **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -277,7 +277,7 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     sealed = seal_aes_ctr_legacy(
         key_service,
         secret,
-        **kwargs
+        digest_method=digest,
     )
 
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -563,7 +563,7 @@ def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
         'key': b64encode(encoded_key).decode('utf-8'),
         'contents': b64encode(ciphertext).decode('utf-8'),
         'hmac': hmac.encode('hex'),
-        'digest_method': digest_method,
+        'digest': digest_method,
     }
 
 
@@ -756,7 +756,7 @@ def get_parser():
                                  "causes the `-v` flag to be ignored. "
                                  "(This option will fail if the currently stored "
                                  "version is not numeric.)")
-    parsers[action].add_argument("-d", "--digest", default="SHA256",
+    parsers[action].add_argument("-d", "--digest", default=DEFAULT_DIGEST,
                                  choices=HASHING_ALGORITHMS,
                                  help="the hashing algorithm used to "
                                  "to encrypt the data. Defaults to SHA256")
