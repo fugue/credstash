@@ -14,6 +14,17 @@ Some organizations build complete credential-management systems, but for most of
 
 CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management Service (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
 
+## Compatibility with Other Languages 
+A number of great projects exist to provide credstash compatability with other languages. Here are the ones that we know about (feel free to open a pull request if you know of another):
+
+- https://github.com/jessecoyle/jcredstash (Java)
+- https://github.com/adorechic/rcredstash (Ruby)
+- https://github.com/kdrakon/scala-credstash (Scala)
+- https://github.com/gmo/credstash-php (PHP)
+- https://github.com/roylines/node-credstash (Node.js)
+- https://github.com/winebarrel/gcredstash (Go)
+
+
 ## How does it work?
 After you complete the steps in the `Setup` section, you will have an encryption key in KMS (in this README, we will refer to that key as the `master key`), and a credential storage table in DDB.
 
@@ -233,10 +244,36 @@ You can read secrets from credstash with the get or getall actions by either usi
 ```
 If you are using Key Policies or Grants, then the `kms:Decrypt` is not required in the policy for the IAM user/group/role. Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console). Note that the `dynamodb:Scan` permission is not required if you do not use wildcards in your `get`s.
 
+### Setup Permissions
+In order to run `credstash setup`, you will also need to be able to perform the following DDB operations:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "dynamodb:CreateTable",
+                "dynamodb:DescribeTable"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws:dynamodb:us-west-2:<ACCOUNT NUMBER>:table/credential-store"
+        },
+        {
+            "Action": [
+                "dynamodb:ListTables"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}
+```
+
 ## Security Notes
 Any IAM principal who can get items from the credential store DDB table, and can call KMS.Decrypt, can read stored credentials.
 
 The target deployment-story for `credstash` is an EC2 instance running with an IAM role that has permissions to read the credential store and use the master key. Since IAM role credentials are vended by the instance metadata service, by default, any user on the system can fetch creds and use them to retrieve credentials. That means that by default, the instance boundary is the security boundary for this system. If you are worried about unauthorized users on your instance, you should take steps to secure access to the Instance Metadata Service (for example, use iptables to block connections to 169.254.169.254 except for privileged users). Also, because credstash is written in python, if an attacker can dump the memory of the credstash process, they may be able to recover credentials. This is a known issue, but again, in the target deployment case, the security boundary is assumed to be the instance boundary.
+
 
 ## Frequently Asked Questions (FAQ)
 
