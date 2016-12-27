@@ -64,6 +64,7 @@ WILDCARD_CHAR = "*"
 
 
 class KeyService(object):
+
     def __init__(self, kms, key_id, encryption_context):
         self.kms = kms
         self.key_id = key_id
@@ -74,8 +75,8 @@ class KeyService(object):
             kms_response = self.kms.generate_data_key(
                 KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=number_of_bytes
             )
-        except:
-            raise KmsError("Could not generate key using KMS key %s" % self.key_id)
+        except Exception as e:
+            raise KmsError("Could not generate key using KMS key %s (Detail: %s)" % (kms_key, e.message))
         return kms_response['Plaintext'], kms_response['CiphertextBlob']
 
     def decrypt(self, encoded_key):
@@ -305,7 +306,7 @@ def getAllSecrets(version="", region=None, table="credential-store",
     if credential and WILDCARD_CHAR in credential:
         names = set(expand_wildcard(credential,
                                     [x["name"]
-                                    for x in secrets]))
+                                     for x in secrets]))
     else:
         names = set(x["name"] for x in secrets)
 
