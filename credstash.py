@@ -15,6 +15,7 @@
 from __future__ import print_function
 
 import argparse
+import codecs
 import csv
 import json
 import operator
@@ -544,7 +545,10 @@ def open_aes_ctr_legacy(key_service, material):
     key = key_service.decrypt(b64decode(material['key']))
     digest_method = material.get('digest', DEFAULT_DIGEST)
     ciphertext = b64decode(material['contents'])
-    hmac = material['hmac'].decode('hex')
+    if hasattr(material['hmac'], "value"):
+        hmac = codecs.decode(material['hmac'].value, "hex")
+    else:
+        hmac = codecs.decode(material['hmac'], "hex")
     return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method).decode("utf-8")
 
 
@@ -562,7 +566,7 @@ def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
     return {
         'key': b64encode(encoded_key).decode('utf-8'),
         'contents': b64encode(ciphertext).decode('utf-8'),
-        'hmac': hmac.encode('hex'),
+        'hmac': codecs.encode(hmac, "hex_codec"),
         'digest': digest_method,
     }
 
@@ -590,7 +594,7 @@ def _seal_aes_ctr(plaintext, key, nonce, digest_method):
         backend=default_backend()
     ).encryptor()
 
-    ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+    ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
     return ciphertext, _get_hmac(hmac_key, ciphertext, digest_method)
 
 
