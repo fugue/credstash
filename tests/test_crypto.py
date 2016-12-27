@@ -31,6 +31,16 @@ def test_aes_ctr_legacy():
     )
     assert plaintext == recovered_plaintext
 
+    material = aes_ctr.seal_aes_ctr_legacy(
+        key_service,
+        plaintext,
+        digest_method='SHA512'
+    )
+    recovered_plaintext = aes_ctr.open_aes_ctr_legacy(
+        key_service, material
+    )
+    assert plaintext == recovered_plaintext
+
 
 def test_aes_ctr():
     key_service = DummyKeyService()
@@ -39,6 +49,16 @@ def test_aes_ctr():
     material = aes_ctr.seal_aes_ctr(
         key_service,
         plaintext
+    )
+    recovered_plaintext = aes_ctr.open_aes_ctr(
+        key_service, material
+    )
+    assert plaintext == recovered_plaintext
+
+    material = aes_ctr.seal_aes_ctr(
+        key_service,
+        plaintext,
+        digest_method='SHA512'
     )
     recovered_plaintext = aes_ctr.open_aes_ctr(
         key_service, material
