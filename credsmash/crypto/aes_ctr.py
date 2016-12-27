@@ -68,7 +68,7 @@ def seal_aes_ctr(key_service, secret, digest_method=DEFAULT_DIGEST, key_length=D
         'contents': Binary(ciphertext),
         'hmac': Binary(hmac),
         'nonce': Binary(nonce),
-        'digest_method': digest_method,
+        'digest': digest_method,
         'algorithm': ALGO_AES_CTR,
     }
 
@@ -104,7 +104,7 @@ def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
         'key': b64encode(encoded_key).decode('utf-8'),
         'contents': b64encode(ciphertext).decode('utf-8'),
         'hmac': hmac.encode('hex'),
-        'digest_method': digest_method,
+        'digest': digest_method,
     }
 
 
