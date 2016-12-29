@@ -1,10 +1,27 @@
 # CredStash
 
 ## Quick Installation
+0. (Linux only) Install dependencies 
 1. `pip install credstash`
-2. Set up a key called credstash in KMS
+2. Set up a key called credstash in KMS (found in the IAM console)
 3. Make sure you have AWS creds in a place that boto/botocore can read them
 4. `credstash setup`
+
+### Linux install-time dependencies
+Credstash recently moved from PyCrypto to `cryptography`. `cryptography` uses pre-built binary wheels on OSX and Windows, but does not on Linux. That means that you need to install some dependencies if you want to run credstash on linux. 
+
+For Debian and Ubuntu, the following command will ensure that the required dependencies are installed:
+```
+$ sudo apt-get install build-essential libssl-dev libffi-dev python-dev
+```
+For Fedora and RHEL-derivatives, the following command will ensure that the required dependencies are installed:
+```
+$ sudo yum install gcc libffi-devel python-devel openssl-devel
+```
+
+In either case, once you've installed the dependencies, you can do `pip install credstash` as usual.
+
+See https://cryptography.io/en/latest/installation/ for more information.
 
 
 ## What is this?
