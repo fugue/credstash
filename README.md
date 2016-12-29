@@ -3,7 +3,7 @@
 ## Quick Installation
 0. (Linux only) Install dependencies 
 1. `pip install credstash`
-2. Set up a key called credstash in KMS
+2. Set up a key called credstash in KMS (found in the IAM console)
 3. Make sure you have AWS creds in a place that boto/botocore can read them
 4. `credstash setup`
 
