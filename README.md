@@ -40,6 +40,7 @@ A number of great projects exist to provide credstash compatability with other l
 - https://github.com/gmo/credstash-php (PHP)
 - https://github.com/roylines/node-credstash (Node.js)
 - https://github.com/winebarrel/gcredstash (Go)
+- https://github.com/Narochno/Narochno.Credstash (C#)
 
 
 ## How does it work?
