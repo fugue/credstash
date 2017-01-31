@@ -38,7 +38,7 @@ A number of great projects exist to provide credstash compatability with other l
 - https://github.com/adorechic/rcredstash (Ruby)
 - https://github.com/kdrakon/scala-credstash (Scala)
 - https://github.com/gmo/credstash-php (PHP)
-- https://github.com/roylines/node-credstash (Node.js)
+- https://github.com/DavidTanner/nodecredstash (Node.js)
 - https://github.com/winebarrel/gcredstash (Go)
 - https://github.com/Narochno/Narochno.Credstash (C#)
 
