@@ -270,11 +270,13 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
-    if not context:
-        context = {}
+    version = paddedInt(version)
+    encryption_context = {'name': name, 'version': version}
+    if context:
+        encryption_context.update(context)
     session = get_session(**kwargs)
     kms = session.client('kms', region_name=region)
-    key_service = KeyService(kms, kms_key, context)
+    key_service = KeyService(kms, kms_key, encryption_context)
     sealed = seal_aes_ctr_legacy(
         key_service,
         secret,
@@ -286,7 +288,7 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
     data = {
         'name': name,
-        'version': paddedInt(version),
+        'version': version,
     }
     data.update(sealed)
 
@@ -294,7 +296,7 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
 
 def getAllSecrets(version="", region=None, table="credential-store",
-                  context=None, credential=None, session=None, **kwargs):
+                  context=None, credential=None, session=None, set_default_context=True, **kwargs):
     '''
     fetch and decrypt all secrets
     '''
@@ -324,6 +326,7 @@ def getAllSecrets(version="", region=None, table="credential-store",
                                            context,
                                            dynamodb,
                                            kms,
+                                           set_default_context,
                                            **kwargs)
         except:
             pass
@@ -423,12 +426,10 @@ def getSecretAction(args, region, **session_params):
 
 def getSecret(name, version="", region=None,
               table="credential-store", context=None,
-              dynamodb=None, kms=None, **kwargs):
+              dynamodb=None, kms=None, set_default_context=True, **kwargs):
     '''
     fetch and decrypt the secret called `name`
     '''
-    if not context:
-        context = {}
 
     # Can we cache
     if dynamodb is None or kms is None:
@@ -456,9 +457,22 @@ def getSecret(name, version="", region=None,
                 "Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
 
-    key_service = KeyService(kms, None, context)
+    encryption_context = {'name': name, 'version': material['version']} if set_default_context else {}
+    fallback_context = {}
+    if context != None:
+        fallback_context = context
+        encryption_context.update(context)
+    key_service = KeyService(kms, None, encryption_context)
 
-    return open_aes_ctr_legacy(key_service, material)
+    try:
+        return open_aes_ctr_legacy(key_service, material)
+    except KmsError as e:
+        key_service = KeyService(kms, None, fallback_context)
+        secret = open_aes_ctr_legacy(key_service, material)
+        printStdErr("Secret is encrypted without a default EncryptionContext. "
+                    "Run credstash-migrate-encryption-context.py to update.")
+        return secret
+
 
 
 @clean_fail
