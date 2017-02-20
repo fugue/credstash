@@ -398,14 +398,29 @@ def getSecretAction(args, region, **session_params):
                                      in listSecrets(region=region,
                                                     table=args.table,
                                                     **session_params)])
-            print(json.dumps(dict((name,
-                                   getSecret(name,
-                                             args.version,
-                                             region=region,
-                                             table=args.table,
-                                             context=args.context,
-                                             **session_params))
-                                  for name in names)))
+            secrets = dict((name,
+                            getSecret(name,
+                                      args.version,
+                                      region=region,
+                                      table=args.table,
+                                      context=args.context,
+                                      **session_params))
+                          for name in names)
+            if args.format == "json":
+                output_func = json.dumps
+                output_args = {"sort_keys": True,
+                               "indent": 4,
+                               "separators": (',', ': ')}
+            elif not NO_YAML and args.format == "yaml":
+                output_func = yaml.dump
+                output_args = {"default_flow_style": False}
+            elif args.format == 'csv':
+                output_func = csv_dump
+                output_args = {}
+            elif args.format == 'dotenv':
+                output_func = dotenv_dump
+                output_args = {}
+            sys.stdout.write(output_func(secrets, **output_args))
         else:
             sys.stdout.write(getSecret(args.credential, args.version,
                                        region=region, table=args.table,
@@ -713,6 +728,11 @@ def get_parser():
     parsers[action].add_argument("-v", "--version", default="",
                                  help="Get a specific version of the "
                                  "credential (defaults to the latest version)")
+    parsers[action].add_argument("-f", "--format", default="json",
+                                 choices=["json", "csv", "dotenv"] +
+                                 ([] if NO_YAML else ["yaml"]),
+                                 help="Output format. json(default) " +
+                                 ("" if NO_YAML else "yaml ") + " csv or dotenv.")
     parsers[action].set_defaults(action=action)
 
     action = 'getall'
