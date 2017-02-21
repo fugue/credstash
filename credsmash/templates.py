@@ -100,8 +100,8 @@ def cmd_render_template(
         secrets = DictProxy(local_secrets, key_fmt)
     else:
         secrets = CredsmashProxy(
-            ctx.obj.storage_service,
             ctx.obj.key_service,
+            ctx.obj.storage_service,
             key_fmt,
         )
 
