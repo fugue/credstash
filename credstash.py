@@ -275,11 +275,12 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     session = get_session(**kwargs)
     kms = session.client('kms', region_name=region)
     key_service = KeyService(kms, kms_key, context)
-    sealed = seal_aes_ctr_legacy(
+    (contents, sealed) = seal_aes_ctr_legacy(
         key_service,
         secret,
         digest_method=digest,
     )
+    sealed.update( { "contents": contents } )
 
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
@@ -574,12 +575,12 @@ def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
     ciphertext, hmac = _seal_aes_ctr(
         secret, key, LEGACY_NONCE, digest_method,
     )
-    return {
-        'key': b64encode(encoded_key).decode('utf-8'),
-        'contents': b64encode(ciphertext).decode('utf-8'),
-        'hmac': codecs.encode(hmac, "hex_codec"),
-        'digest': digest_method,
-    }
+    return ( b64encode(ciphertext).decode('utf-8'),
+            {
+              'key': b64encode(encoded_key).decode('utf-8'),
+              'hmac': codecs.encode(hmac, "hex_codec"),
+              'digest': digest_method }
+            )
 
 
 def _open_aes_ctr(key, nonce, ciphertext, expected_hmac, digest_method):
