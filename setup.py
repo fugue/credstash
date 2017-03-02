@@ -25,5 +25,6 @@ setup(
             'credstash = credstash:main',
             'creds3 = creds3:main'
         ]
-    }
+    },
+    obsoletes=[ 'creds3' ]
 )
