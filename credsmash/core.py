@@ -82,7 +82,9 @@ class Credsmash(object):
             raise ItemNotFound(
                 "Item name={0} version={1} couldn't be found.".format(secret_name, version)
             )
-        return open_secret(self.key_service, ciphertext)
+        return open_secret(self.key_service, ciphertext, metadata={
+            'name': secret_name, 'version': version,
+        })
 
     def get_all(self):
         """
@@ -145,7 +147,11 @@ class Credsmash(object):
             if latest_ciphertext:
                 version += latest_version
                 if compare:
-                    latest_plaintext = open_secret(self.key_service, latest_ciphertext)
+                    latest_plaintext = open_secret(
+                        self.key_service, latest_ciphertext, metadata={
+                            'name': secret_name, 'version': latest_version,
+                        }
+                    )
                     if plaintext == latest_plaintext:
                         logger.info('"%s" is unchanged from version %d', secret_name, latest_version)
                         return latest_version
@@ -155,6 +161,9 @@ class Credsmash(object):
             plaintext,
             algorithm=self.algorithm,
             binary_type=getattr(self.storage_service, 'binary_type', None),
+            metadata={
+                'name': secret_name, 'version': version
+            },
             **self.algorithm_options
         )
 

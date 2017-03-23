@@ -11,20 +11,22 @@ class KmsKeyService(object):
             encryption_context = {}
         self.encryption_context = encryption_context
 
-    def generate_key_data(self, number_of_bytes):
+    def generate_key_data(self, number_of_bytes, additional_authenticated_data=None):
+        encryption_context = self._get_encryption_context(additional_authenticated_data)
         try:
             kms_response = self.kms.generate_data_key(
-                KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=int(number_of_bytes)
+                KeyId=self.key_id, EncryptionContext=encryption_context, NumberOfBytes=int(number_of_bytes)
             )
         except:
             raise KmsError("Could not generate key using KMS key %s" % self.key_id)
         return kms_response['Plaintext'], kms_response['CiphertextBlob']
 
-    def decrypt(self, encoded_key):
+    def decrypt(self, encoded_key, additional_authenticated_data=None):
+        encryption_context = self._get_encryption_context(additional_authenticated_data)
         try:
             kms_response = self.kms.decrypt(
                 CiphertextBlob=encoded_key,
-                EncryptionContext=self.encryption_context
+                EncryptionContext=encryption_context
             )
         except botocore.exceptions.ClientError as e:
             if e.response["Error"]["Code"] == "InvalidCiphertextException":
@@ -40,6 +42,14 @@ class KmsKeyService(object):
                 msg = "Decryption error %s" % e
             raise KmsError(msg)
         return kms_response['Plaintext']
+
+    def _get_encryption_context(self, additional_authenticated_data):
+        encryption_context = {}
+        if self.encryption_context:
+            encryption_context.update(self.encryption_context)
+        if additional_authenticated_data:
+            encryption_context.update(additional_authenticated_data)
+        return encryption_context
 
     def __repr__(self):
         return 'KmsKeyService(key_id={0},context={1})'.format(self.key_id, self.encryption_context)

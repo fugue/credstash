@@ -10,29 +10,30 @@ DEFAULT_KEY_LENGTH = 32
 DEFAULT_IV_LENGTH = 12
 
 
-def open_aes_gcm(key_service, material):
+def open_aes_gcm(key_service, ciphertext, additional_authenticated_data):
     """
     Decrypts secrets stored by `seal_aes_ctr`.
 
     Allows for binary plaintext
     """
-    key = key_service.decrypt(material['key'])
+    key = key_service.decrypt(ciphertext['key'], additional_authenticated_data)
     return _open_aes_gcm(
         key,
-        material['iv'],
-        material['tag'],
-        material['contents']
+        ciphertext['iv'],
+        ciphertext['tag'],
+        ciphertext['contents']
     )
 
 
-def seal_aes_gcm(key_service, secret, key_length=DEFAULT_KEY_LENGTH, iv_length=DEFAULT_IV_LENGTH, binary_type=None):
+def seal_aes_gcm(key_service, plaintext, additional_authenticated_data,
+                 key_length=DEFAULT_KEY_LENGTH, iv_length=DEFAULT_IV_LENGTH, binary_type=None):
     """
     Encrypts `secret` using the key service.
 
     You can decrypt with the companion method `open_aes_ctr`.
     """
-    key, encoded_key = key_service.generate_key_data(key_length)
-    iv, tag, ciphertext = _seal_aes_gcm(secret, key, iv_length)
+    key, encoded_key = key_service.generate_key_data(key_length, additional_authenticated_data)
+    iv, tag, ciphertext = _seal_aes_gcm(plaintext, key, iv_length)
 
     # Agh! a mighty break in abstraction
     # DynamoDB wont put `bytes` => `Binary` in python2

@@ -27,30 +27,31 @@ HASHING_ALGORITHMS = list(_hash_classes.keys())
 LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 
-def open_aes_ctr(key_service, material):
+def open_aes_ctr(key_service, ciphertext, additional_authenticated_data):
     """
     Decrypts secrets stored by `seal_aes_ctr`.
 
     Allows for binary plaintext
     """
-    key = key_service.decrypt(material['key'])
-    digest_method = material.get('digest', DEFAULT_DIGEST)
-    ciphertext = material['contents']
-    hmac = material['hmac']
-    nonce = material.get('nonce', LEGACY_NONCE)
-    return _open_aes_ctr(key, nonce, ciphertext, hmac, digest_method)
+    key = key_service.decrypt(ciphertext['key'], additional_authenticated_data)
+    digest_method = ciphertext.get('digest', DEFAULT_DIGEST)
+    contents = ciphertext['contents']
+    hmac = ciphertext['hmac']
+    nonce = ciphertext.get('nonce', LEGACY_NONCE)
+    return _open_aes_ctr(key, nonce, contents, hmac, digest_method)
 
 
-def seal_aes_ctr(key_service, secret, digest_method=DEFAULT_DIGEST, key_length=DEFAULT_KEY_LENGTH, binary_type=None):
+def seal_aes_ctr(key_service, plaintext, additional_authenticated_data,
+                 digest_method=DEFAULT_DIGEST, key_length=DEFAULT_KEY_LENGTH, binary_type=None):
     """
     Encrypts `secret` using the key service.
 
     You can decrypt with the companion method `open_aes_ctr`.
     """
-    key, encoded_key = key_service.generate_key_data(key_length)
+    key, encoded_key = key_service.generate_key_data(key_length, additional_authenticated_data)
     nonce = os.urandom(16)
     ciphertext, hmac = _seal_aes_ctr(
-        secret, key, nonce, digest_method
+        plaintext, key, nonce, digest_method
     )
 
     # Agh! a mighty break in abstraction
@@ -70,20 +71,21 @@ def seal_aes_ctr(key_service, secret, digest_method=DEFAULT_DIGEST, key_length=D
     }
 
 
-def open_aes_ctr_legacy(key_service, material):
+def open_aes_ctr_legacy(key_service, ciphertext, additional_authenticated_data):
     """
     Decrypts secrets stored by `seal_aes_ctr_legacy`.
 
     Assumes that the plaintext is str (non-binary).
     """
-    key = key_service.decrypt(_from_b64(material['key']))
+    key = key_service.decrypt(_from_b64(material['key']), additional_authenticated_data)
     digest_method = material.get('digest', DEFAULT_DIGEST)
     ciphertext = _from_b64(material['contents'])
     hmac = _from_hex(material['hmac'])
     return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method)
 
 
-def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
+def seal_aes_ctr_legacy(key_service, plaintext, additional_authenticated_data,
+                        digest_method=DEFAULT_DIGEST):
     """
     :deprecated: Please use `seal_aes_ctr` instead.
 
@@ -93,9 +95,9 @@ def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
     """
     # generate a a 64 byte key.
     # Half will be for data encryption, the other half for HMAC
-    key, encoded_key = key_service.generate_key_data(64)
+    key, encoded_key = key_service.generate_key_data(64, additional_authenticated_data)
     ciphertext, hmac = _seal_aes_ctr(
-        secret, key, LEGACY_NONCE, digest_method,
+        plaintext, key, LEGACY_NONCE, digest_method,
     )
     return {
         'key': _to_b64(encoded_key),
