@@ -587,7 +587,7 @@ def _open_aes_ctr(key, nonce, ciphertext, expected_hmac, digest_method):
     data_key, hmac_key = _halve_key(key)
     hmac = _get_hmac(hmac_key, ciphertext, digest_method)
     # Check the HMAC before we decrypt to verify ciphertext integrity
-    if constant_time.bytes_eq(hmac, expected_hmac):
+    if not constant_time.bytes_eq(hmac, expected_hmac):
         raise IntegrityError("Computed HMAC on %s does not match stored HMAC")
 
     decryptor = Cipher(
