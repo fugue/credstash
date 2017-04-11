@@ -649,6 +649,19 @@ def list_credentials(region, args, **session_params):
         return
 
 
+@clean_fail
+def list_credential_keys(region, args, **session_params):
+    credential_list = listSecrets(region=region,
+                                  table=args.table,
+                                  **session_params)
+    if credential_list:
+        creds = sorted(set([cred["name"] for cred in credential_list]))
+        for cred in creds:
+            print(cred)
+    else:
+        return
+
+
 def get_session_params(profile, arn):
     params = {}
     if profile is None and arn:
@@ -809,6 +822,9 @@ def main():
             return
         if args.action == "list":
             list_credentials(region, args, **session_params)
+            return
+        if args.action == "keys":
+            list_credential_keys(region, args, **session_params)
             return
         if args.action == "put":
             putSecretAction(args, region, **session_params)
