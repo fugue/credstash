@@ -422,9 +422,9 @@ def getSecretAction(args, region, **session_params):
         fatal(e)
 
 
-def getSecret(name, version="", region=None,
-              table="credential-store", context=None,
-              dynamodb=None, kms=None, **kwargs):
+def getSecret(name, version="", kms_key="alias/credstash",
+              region=None, table="credential-store",
+              context=None, dynamodb=None, kms=None, **kwargs):
     '''
     fetch and decrypt the secret called `name`
     '''
@@ -457,7 +457,7 @@ def getSecret(name, version="", region=None,
                 "Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
 
-    key_service = KeyService(kms, None, context)
+    key_service = KeyService(kms, kms_key, context)
 
     return open_aes_ctr_legacy(key_service, material)
 
