@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from __future__ import print_function
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),"..")))
 
 import boto3
 import credstash
@@ -34,7 +37,7 @@ def updateVersions(region="us-east-1", table="credential-store"):
                 secrets.put_item(Item=new_item)
                 secrets.delete_item(Key={'name': old_item['name'], 'version': old_item['version']})
         else:
-            print "Skipping item: %s, %s" % (old_item['name'], old_item['version'])
+            print("Skipping item: %s, %s" % (old_item['name'], old_item['version']))
 
 
 if __name__ == "__main__":
