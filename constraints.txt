@@ -1,0 +1,4 @@
+cryptography>=1.5
+boto3>=1.1.1
+click>=6.6
+PyYAML>=3.10

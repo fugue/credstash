@@ -55,16 +55,16 @@ setup(
 
     setup_requires=[] + pytest_runner + setupext_pip,
     install_requires=[
-        'cryptography~=1.5',
-        'boto3>=1.1.1',
-        'click>=6.6',
+        'cryptography',
+        'boto3',
+        'click',
         'six'
     ],
     tests_require=[
         'pytest',
     ],
     extras_require={
-        'yaml': ['PyYAML>=3.10'],
+        'yaml': ['PyYAML'],
         'templates': ['jinja2'],
         'documentation': ['pyandoc'],
     },
