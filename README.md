@@ -154,7 +154,7 @@ get
                             the latest version)
 
 getall
-    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-v VERSION] [-f {json,yaml,csv}]
+    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-v VERSION] [-f {json,yaml,csv,dotenv}]
                             [context [context ...]]
 
     positional arguments:
@@ -164,9 +164,9 @@ getall
     optional arguments:
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
-                            the latest version)
-      -f {json,csv,dotenv,yaml}, --format {json,csv,dotenv,yaml}
-                            Output format. json(default) yaml csv or dotenv.
+                            the latest version).
+      -f {json,yaml,csv,dotenv}, --format {json,yaml,csv,dotenv}
+                            Output format. json(default), yaml, csv or dotenv.
 
 
 list
@@ -176,14 +176,14 @@ put
     usage: credstash put [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-k KEY] [-v VERSION]
                          credential value [context [context ...]]
 
-    positional arguments:
-      credential            the name of the credential to store
-      value                 the value of the credential to store or, if beginning
-                            with the "@" character, the filename of the file
-                            containing the value, or pass "-" to read the value
-                            from stdin
-      context               encryption context key/value pairs associated with the
-                            credential in the form of "key=value"
+positional arguments:
+  credential            the name of the credential to store
+  value                 the value of the credential to store or, if beginning
+                        with the "@" character, the filename of the file
+                        containing the value, or pass "-" to read the value
+                        from stdin
+  context               encryption context key/value pairs associated with the
+                        credential in the form of "key=value"
 
     optional arguments:
       -k KEY, --key KEY     the KMS key-id of the master key to use. See the
