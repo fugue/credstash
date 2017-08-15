@@ -152,7 +152,7 @@ get
                             the latest version).
 
 getall
-    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-v VERSION] [-f {json,yaml,csv}]
+    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-v VERSION] [-f {json,yaml,csv,dotenv}]
                             [context [context ...]]
 
     positional arguments:
@@ -163,8 +163,8 @@ getall
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
                             the latest version).
-      -f {json,yaml,csv}, --format {json,yaml,csv}
-                            Output format. json(default), yaml or csv.
+      -f {json,yaml,csv,dotenv}, --format {json,yaml,csv,dotenv}
+                            Output format. json(default), yaml, csv or dotenv.
 
 
 list
