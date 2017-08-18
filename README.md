@@ -1,10 +1,27 @@
 # CredStash
 
 ## Quick Installation
+0. (Linux only) Install dependencies 
 1. `pip install credstash`
-2. Set up a key called credstash in KMS
+2. Set up a key called credstash in KMS (found in the IAM console)
 3. Make sure you have AWS creds in a place that boto/botocore can read them
 4. `credstash setup`
+
+### Linux install-time dependencies
+Credstash recently moved from PyCrypto to `cryptography`. `cryptography` uses pre-built binary wheels on OSX and Windows, but does not on Linux. That means that you need to install some dependencies if you want to run credstash on linux. 
+
+For Debian and Ubuntu, the following command will ensure that the required dependencies are installed:
+```
+$ sudo apt-get install build-essential libssl-dev libffi-dev python-dev
+```
+For Fedora and RHEL-derivatives, the following command will ensure that the required dependencies are installed:
+```
+$ sudo yum install gcc libffi-devel python-devel openssl-devel
+```
+
+In either case, once you've installed the dependencies, you can do `pip install credstash` as usual.
+
+See https://cryptography.io/en/latest/installation/ for more information.
 
 
 ## What is this?
@@ -14,6 +31,18 @@ Some organizations build complete credential-management systems, but for most of
 
 CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management Service (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
 
+## Compatibility with Other Languages 
+A number of great projects exist to provide credstash compatability with other languages. Here are the ones that we know about (feel free to open a pull request if you know of another):
+
+- https://github.com/jessecoyle/jcredstash (Java)
+- https://github.com/adorechic/rcredstash (Ruby)
+- https://github.com/kdrakon/scala-credstash (Scala)
+- https://github.com/gmo/credstash-php (PHP)
+- https://github.com/DavidTanner/nodecredstash (Node.js)
+- https://github.com/winebarrel/gcredstash (Go)
+- https://github.com/Narochno/Narochno.Credstash (C#)
+
+
 ## How does it work?
 After you complete the steps in the `Setup` section, you will have an encryption key in KMS (in this README, we will refer to that key as the `master key`), and a credential storage table in DDB.
 
@@ -21,7 +50,7 @@ After you complete the steps in the `Setup` section, you will have an encryption
 Whenever you want to store/share a credential, such as a database password, you simply run `credstash put [credential-name] [credential-value]`. For example, `credstash put myapp.db.prod supersecretpassword1234`. credstash will go to the KMS and generate a unique data encryption key, which itself is encrypted by the master key (this is called key wrapping). credstash will use the data encryption key to encrypt the credential value. It will then store the encrypted credential, along with the wrapped (encrypted) data encryption key in the credential store in DynamoDB.
 
 ### Getting Secrets
-When you want to fetch the credential, for example as part of the bootstrap process on your web-server, you simply do `credstash get [credential-name]`. For example, `export DB_PASSWORD=$(credstash get myapp.db.prod)`. When you run `get`, credstash will go and fetch the encrypted credential and the wrapped encryption key from the credential store (DynamoDB). It will then send the wrapped encryption key to KMS, where it is decrypted with the master key. credstash then uses the decrypted data encryption key to decrypt the credential. The credential is printed to `stdout`, so you can use it in scripts or assign environment variables to it.
+When you want to fetch the credential, for example as part of the bootstrap process on your web-server, you simply do `credstash get [credential-name]`. For example, `export DB_PASSWORD=$(credstash get myapp.db.prod)`. When you run `get`, credstash will go and fetch the encrypted credential and the wrapped encryption key from the credential store (DynamoDB). It will then send the wrapped encryption key to KMS, where it is decrypted with the master key. credstash then uses the decrypted data encryption key to decrypt the credential. The credential is printed to `stdout`, so you can use it in scripts or assign it to environment variables.
 
 ### Controlling and Auditing Secrets
 Optionally, you can include any number of [Encryption Context](http://docs.aws.amazon.com/kms/latest/developerguide/encrypt-context.html) key value pairs to associate with the credential. The exact set of encryption context key value pairs that were associated with the credential when it was `put` in DynamoDB must be provided in the `get` request to successfully decrypt the credential. These encryption context key value pairs are useful to provide auditing context to the encryption and decryption operations in your CloudTrail logs. They are also useful for constraining access to a given credstash stored credential by using KMS Key Policy conditions and KMS Grant conditions. Doing so allows you to, for example, make sure that your database servers and web-servers can read the web-server DB user password but your database servers can not read your web-servers TLS/SSL certificate's private key. A `put` request with encryption context would look like `credstash put myapp.db.prod supersecretpassword1234 app.tier=db environment=prod`. In order for your web-servers to read that same credential they would execute a `get` call like `export DB_PASSWORD=$(credstash get myapp.db.prod environment=prod app.tier=db)`
@@ -32,7 +61,7 @@ Credentials stored in the credential-store are versioned and immutable. That is,
 If you use incrementing integer version numbers (for example, `[1, 2, 3, ...]`), then you can use the `-a` flag with the `put` command to automatically increment the version number. However, because of the lexicographical sorting in DynamoDB, `credstash` will left-pad the version representation with zeros (for example, `[001, 025, 103, ...]`, except to 19 characters, enough to handle `sys.maxint` on 64-bit systems).
 
 #### Special Note for Those Using Credstash Auto-Versioning Before December 2015
-Prior to December 2015, `credstash` auto-versioned with unpadded integers. This resulted in a sorting error once a key hit ten versions. To ensure support for dates that were not numbers (such as dates, build versions, names, etc.), the lexicographical sorting behavior was retained, but the auto-versioning behavior was changed to left-pad integer representations.
+Prior to December 2015, `credstash` auto-versioned with unpadded integers. This resulted in a sorting error once a key hit ten versions. To ensure support for versions that were not numbers (such as dates, build versions, names, etc.), the lexicographical sorting behavior was retained, but the auto-versioning behavior was changed to left-pad integer representations.
 
 If you've used auto-versioning so far, you should run the `credstash-migrate-autoversion.py` script included in the root of the repository. If you are supplying your own version numbers, you should ensure a lexicographic sort of your versions produces the result you desire.
 
@@ -177,8 +206,8 @@ optional arguments:
                         set, us-east-1
   -t TABLE, --table TABLE
                         DynamoDB table to use for credential storage
-```
   -n ARN, --arn ARN     AWS IAM ARN for AssumeRole
+```
 ## IAM Policies
 
 ### Secret Writer
@@ -207,7 +236,7 @@ You can put or write secrets to credstash by either using KMS Key Grants, KMS Ke
 If you are using Key Policies or Grants, then the `kms:GenerateDataKey` is not required in the policy for the IAM user/group/role. Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console).
 
 ### Secret Reader
-You can read secrets from credstash with the get or getall actions by either using KMS Key Grants, KMS Key Policies, or IAM Policies. If you are using IAM Policies, the following IAM permissions are the minimum required to be able to put or read secrets:
+You can read secrets from credstash with the get or getall actions by either using KMS Key Grants, KMS Key Policies, or IAM Policies. If you are using IAM Policies, the following IAM permissions are the minimum required to be able to get or read secrets:
 ```
 {
   "Version": "2012-10-17",
@@ -233,10 +262,36 @@ You can read secrets from credstash with the get or getall actions by either usi
 ```
 If you are using Key Policies or Grants, then the `kms:Decrypt` is not required in the policy for the IAM user/group/role. Replace `AWSACCOUNTID` with the account ID for your table, and replace the KEY-GUID with the identifier for your KMS key (which you can find in the KMS console). Note that the `dynamodb:Scan` permission is not required if you do not use wildcards in your `get`s.
 
+### Setup Permissions
+In order to run `credstash setup`, you will also need to be able to perform the following DDB operations:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "dynamodb:CreateTable",
+                "dynamodb:DescribeTable"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws:dynamodb:us-west-2:<ACCOUNT NUMBER>:table/credential-store"
+        },
+        {
+            "Action": [
+                "dynamodb:ListTables"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}
+```
+
 ## Security Notes
 Any IAM principal who can get items from the credential store DDB table, and can call KMS.Decrypt, can read stored credentials.
 
 The target deployment-story for `credstash` is an EC2 instance running with an IAM role that has permissions to read the credential store and use the master key. Since IAM role credentials are vended by the instance metadata service, by default, any user on the system can fetch creds and use them to retrieve credentials. That means that by default, the instance boundary is the security boundary for this system. If you are worried about unauthorized users on your instance, you should take steps to secure access to the Instance Metadata Service (for example, use iptables to block connections to 169.254.169.254 except for privileged users). Also, because credstash is written in python, if an attacker can dump the memory of the credstash process, they may be able to recover credentials. This is a known issue, but again, in the target deployment case, the security boundary is assumed to be the instance boundary.
+
 
 ## Frequently Asked Questions (FAQ)
 

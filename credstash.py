@@ -12,15 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import print_function
 
 import argparse
+import codecs
 import csv
 import json
 import operator
 import os
 import os.path
 import sys
-import time
 import re
 import boto3
 import botocore.exceptions
@@ -38,17 +39,72 @@ except ImportError:
 
 from base64 import b64encode, b64decode
 from boto3.dynamodb.conditions import Attr
-from Crypto.Cipher import AES
-from Crypto.Hash import SHA256
-from Crypto.Hash.HMAC import HMAC
-from Crypto.Util import Counter
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.hmac import HMAC
+from cryptography.hazmat.primitives import constant_time
+
+_hash_classes = {
+    'SHA': hashes.SHA1,
+    'SHA224': hashes.SHA224,
+    'SHA256': hashes.SHA256,
+    'SHA384': hashes.SHA384,
+    'SHA512': hashes.SHA512,
+    'RIPEMD': hashes.RIPEMD160,
+    'WHIRLPOOL': hashes.Whirlpool,
+    'MD5': hashes.MD5,
+}
+
+DEFAULT_DIGEST = 'SHA256'
+HASHING_ALGORITHMS = _hash_classes.keys()
+LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 DEFAULT_REGION = "us-east-1"
-PAD_LEN = 19 # number of digits in sys.maxint
+PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
 
+class KeyService(object):
+
+    def __init__(self, kms, key_id, encryption_context):
+        self.kms = kms
+        self.key_id = key_id
+        self.encryption_context = encryption_context
+
+    def generate_key_data(self, number_of_bytes):
+        try:
+            kms_response = self.kms.generate_data_key(
+                KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=number_of_bytes
+            )
+        except Exception as e:
+            raise KmsError("Could not generate key using KMS key %s (Detail: %s)" % (self.key_id, e.message))
+        return kms_response['Plaintext'], kms_response['CiphertextBlob']
+
+    def decrypt(self, encoded_key):
+        try:
+            kms_response = self.kms.decrypt(
+                CiphertextBlob=encoded_key,
+                EncryptionContext=self.encryption_context
+            )
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "InvalidCiphertextException":
+                if self.encryption_context is None:
+                    msg = ("Could not decrypt hmac key with KMS. The credential may "
+                           "require that an encryption context be provided to decrypt "
+                           "it.")
+                else:
+                    msg = ("Could not decrypt hmac key with KMS. The encryption "
+                           "context provided may not match the one used when the "
+                           "credential was stored.")
+            else:
+                msg = "Decryption error %s" % e
+            raise KmsError(msg)
+        return kms_response['Plaintext']
+
+
 class KmsError(Exception):
+
     def __init__(self, value=""):
         self.value = "KMS ERROR: " + value if value is not "" else "KMS ERROR"
 
@@ -57,6 +113,7 @@ class KmsError(Exception):
 
 
 class IntegrityError(Exception):
+
     def __init__(self, value=""):
         self.value = "INTEGRITY ERROR: " + value if value is not "" else \
                      "INTEGRITY ERROR"
@@ -70,6 +127,7 @@ class ItemNotFound(Exception):
 
 
 class KeyValueToDictionary(argparse.Action):
+
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace,
                 self.dest,
@@ -80,9 +138,11 @@ def printStdErr(s):
     sys.stderr.write(str(s))
     sys.stderr.write("\n")
 
+
 def fatal(s):
     printStdErr(s)
     sys.exit(1)
+
 
 def key_value_pair(string):
     output = string.split('=')
@@ -118,7 +178,7 @@ def value_or_filename(string):
         try:
             with open(os.path.expanduser(filename)) as f:
                 output = f.read()
-        except IOError as e:
+        except IOError:
             raise argparse.ArgumentTypeError("Unable to read file %s" %
                                              filename)
     else:
@@ -132,6 +192,14 @@ def csv_dump(dictionary):
     for key in dictionary:
         csvwriter.writerow([key, dictionary[key]])
     return csvfile.getvalue()
+
+
+def dotenv_dump(dictionary):
+    dotenv_buffer = StringIO()
+    for key in dictionary:
+        dotenv_buffer.write("%s=%s\n" % (key.upper(), dictionary[key]))
+    dotenv_buffer.seek(0)
+    return dotenv_buffer.read()
 
 
 def paddedInt(i):
@@ -156,12 +224,29 @@ def getHighestVersion(name, region=None, table="credential-store",
     response = secrets.query(Limit=1,
                              ScanIndexForward=False,
                              ConsistentRead=True,
-                             KeyConditionExpression=boto3.dynamodb.conditions.Key("name").eq(name),
+                             KeyConditionExpression=boto3.dynamodb.conditions.Key(
+                                 "name").eq(name),
                              ProjectionExpression="version")
 
     if response["Count"] == 0:
         return 0
     return response["Items"][0]["version"]
+
+
+def clean_fail(func):
+    '''
+    A decorator to cleanly exit on a failed call to AWS.
+    catch a `botocore.exceptions.ClientError` raised from an action.
+    This sort of error is raised if you are targeting a region that
+    isn't set up (see, `credstash setup`.
+    '''
+    def func_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except botocore.exceptions.ClientError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(1)
+    return func_wrapper
 
 
 def listSecrets(region=None, table="credential-store", **kwargs):
@@ -179,9 +264,9 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     return response["Items"]
 
 
-def putSecret(name, secret, version, kms_key="alias/credstash",
+def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              **kwargs):
+              digest=DEFAULT_DIGEST, **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -190,68 +275,170 @@ def putSecret(name, secret, version, kms_key="alias/credstash",
         context = {}
     session = get_session(**kwargs)
     kms = session.client('kms', region_name=region)
-    # generate a a 64 byte key.
-    # Half will be for data encryption, the other half for HMAC
-    try:
-        kms_response = kms.generate_data_key(KeyId=kms_key, EncryptionContext=context, NumberOfBytes=64)
-    except:
-        raise KmsError("Could not generate key using KMS key %s" % kms_key)
-    data_key = kms_response['Plaintext'][:32]
-    hmac_key = kms_response['Plaintext'][32:]
-    wrapped_key = kms_response['CiphertextBlob']
-
-    enc_ctr = Counter.new(128)
-    encryptor = AES.new(data_key, AES.MODE_CTR, counter=enc_ctr)
-
-    c_text = encryptor.encrypt(secret)
-    # compute an HMAC using the hmac key and the ciphertext
-    hmac = HMAC(hmac_key, msg=c_text, digestmod=SHA256)
-    b64hmac = hmac.hexdigest()
+    key_service = KeyService(kms, kms_key, context)
+    sealed = seal_aes_ctr_legacy(
+        key_service,
+        secret,
+        digest_method=digest,
+    )
 
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    data = {}
-    data['name'] = name
-    data['version'] = version if version != "" else paddedInt(1)
-    data['key'] = b64encode(wrapped_key).decode('utf-8')
-    data['contents'] = b64encode(c_text).decode('utf-8')
-    data['hmac'] = b64hmac
+    data = {
+        'name': name,
+        'version': paddedInt(version),
+    }
+    data.update(sealed)
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
 
 def getAllSecrets(version="", region=None, table="credential-store",
-                  context=None, **kwargs):
+                  context=None, credential=None, session=None, **kwargs):
     '''
     fetch and decrypt all secrets
     '''
     output = {}
+    if session is None:
+        session = get_session(**kwargs)
+    dynamodb = session.resource('dynamodb', region_name=region)
+    kms = session.client('kms', region_name=region)
     secrets = listSecrets(region, table, **kwargs)
-    for credential in set([x["name"] for x in secrets]):
+
+    # Only return the secrets that match the pattern in `credential`
+    # This already works out of the box with the CLI get action,
+    # but that action doesn't support wildcards when using as library
+    if credential and WILDCARD_CHAR in credential:
+        names = set(expand_wildcard(credential,
+                                    [x["name"]
+                                     for x in secrets]))
+    else:
+        names = set(x["name"] for x in secrets)
+
+    for credential in names:
         try:
             output[credential] = getSecret(credential,
                                            version,
                                            region,
                                            table,
                                            context,
+                                           dynamodb,
+                                           kms,
                                            **kwargs)
         except:
             pass
     return output
 
 
+@clean_fail
+def getAllAction(args, region, **session_params):
+    secrets = getAllSecrets(args.version,
+                            region=region,
+                            table=args.table,
+                            context=args.context,
+                            **session_params)
+    if args.format == "json":
+        output_func = json.dumps
+        output_args = {"sort_keys": True,
+                       "indent": 4,
+                       "separators": (',', ': ')}
+    elif not NO_YAML and args.format == "yaml":
+        output_func = yaml.dump
+        output_args = {"default_flow_style": False}
+    elif args.format == 'csv':
+        output_func = csv_dump
+        output_args = {}
+    elif args.format == 'dotenv':
+        output_func = dotenv_dump
+        output_args = {}
+    print(output_func(secrets, **output_args))
+
+
+@clean_fail
+def putSecretAction(args, region, **session_params):
+    if args.autoversion:
+        latestVersion = getHighestVersion(args.credential,
+                                          region,
+                                          args.table,
+                                          **session_params)
+        try:
+            version = paddedInt(int(latestVersion) + 1)
+        except ValueError:
+            fatal("Can not autoincrement version. The current "
+                  "version: %s is not an int" % latestVersion)
+    else:
+        version = args.version
+    try:
+        if putSecret(args.credential, args.value, version,
+                     kms_key=args.key, region=region, table=args.table,
+                     context=args.context, digest=args.digest,
+                     **session_params):
+            print("{0} has been stored".format(args.credential))
+    except KmsError as e:
+        fatal(e)
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            latestVersion = getHighestVersion(args.credential, region,
+                                              args.table,
+                                              **session_params)
+            fatal("%s version %s is already in the credential store. "
+                  "Use the -v flag to specify a new version" %
+                  (args.credential, latestVersion))
+        else:
+            fatal(e)
+
+
+@clean_fail
+def getSecretAction(args, region, **session_params):
+    try:
+        if WILDCARD_CHAR in args.credential:
+            names = expand_wildcard(args.credential,
+                                    [x["name"]
+                                     for x
+                                     in listSecrets(region=region,
+                                                    table=args.table,
+                                                    **session_params)])
+            print(json.dumps(dict((name,
+                                   getSecret(name,
+                                             args.version,
+                                             region=region,
+                                             table=args.table,
+                                             context=args.context,
+                                             **session_params))
+                                  for name in names)))
+        else:
+            sys.stdout.write(getSecret(args.credential, args.version,
+                                       region=region, table=args.table,
+                                       context=args.context,
+                                       **session_params))
+            if not args.noline:
+                sys.stdout.write("\n")
+    except ItemNotFound as e:
+        fatal(e)
+    except KmsError as e:
+        fatal(e)
+    except IntegrityError as e:
+        fatal(e)
+
+
 def getSecret(name, version="", region=None,
               table="credential-store", context=None,
-              **kwargs):
+              dynamodb=None, kms=None, **kwargs):
     '''
     fetch and decrypt the secret called `name`
     '''
     if not context:
         context = {}
 
-    session = get_session(**kwargs)
-    dynamodb = session.resource('dynamodb', region_name=region)
+    # Can we cache
+    if dynamodb is None or kms is None:
+        session = get_session(**kwargs)
+        if dynamodb is None:
+            dynamodb = session.resource('dynamodb', region_name=region)
+        if kms is None:
+            kms = session.client('kms', region_name=region)
+
     secrets = dynamodb.Table(table)
 
     if version == "":
@@ -266,41 +453,16 @@ def getSecret(name, version="", region=None,
     else:
         response = secrets.get_item(Key={"name": name, "version": version})
         if "Item" not in response:
-            raise ItemNotFound("Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
+            raise ItemNotFound(
+                "Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
 
-    kms = session.client('kms', region_name=region)
-    # Check the HMAC before we decrypt to verify ciphertext integrity
-    try:
-        kms_response = kms.decrypt(CiphertextBlob=b64decode(material['key']), EncryptionContext=context)
-    except botocore.exceptions.ClientError as e:
-        if e.response["Error"]["Code"] == "InvalidCiphertextException":
-            if context is None:
-                msg = ("Could not decrypt hmac key with KMS. The credential may "
-                       "require that an encryption context be provided to decrypt "
-                       "it.")
-            else:
-                msg = ("Could not decrypt hmac key with KMS. The encryption "
-                       "context provided may not match the one used when the "
-                       "credential was stored.")
-        else:
-            msg = "Decryption error %s" % e
-        raise KmsError(msg)
-    except Exception as e:
-        raise KmsError("Decryption error %s" % e)
-    key = kms_response['Plaintext'][:32]
-    hmac_key = kms_response['Plaintext'][32:]
-    hmac = HMAC(hmac_key, msg=b64decode(material['contents']),
-                digestmod=SHA256)
-    if hmac.hexdigest() != material['hmac']:
-        raise IntegrityError("Computed HMAC on %s does not match stored HMAC"
-                             % name)
-    dec_ctr = Counter.new(128)
-    decryptor = AES.new(key, AES.MODE_CTR, counter=dec_ctr)
-    plaintext = decryptor.decrypt(b64decode(material['contents'])).decode("utf-8")
-    return plaintext
+    key_service = KeyService(kms, None, context)
+
+    return open_aes_ctr_legacy(key_service, material)
 
 
+@clean_fail
 def deleteSecrets(name, region=None, table="credential-store",
                   **kwargs):
     session = get_session(**kwargs)
@@ -312,10 +474,12 @@ def deleteSecrets(name, region=None, table="credential-store",
                             ExpressionAttributeNames={"#N": "name"})
 
     for secret in response["Items"]:
-        print("Deleting %s -- version %s" % (secret["name"], secret["version"]))
+        print("Deleting %s -- version %s" %
+              (secret["name"], secret["version"]))
         secrets.delete_item(Key=secret)
 
 
+@clean_fail
 def createDdbTable(region=None, table="credential-store", **kwargs):
     '''
     create the secret store table in DDB in the specified region
@@ -327,7 +491,7 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
         return
 
     print("Creating table...")
-    response = dynamodb.create_table(
+    dynamodb.create_table(
         TableName=table,
         KeySchema=[
             {
@@ -385,13 +549,123 @@ def get_assumerole_credentials(arn):
                 aws_session_token=credentials['SessionToken'])
 
 
-def main():
+def open_aes_ctr_legacy(key_service, material):
+    """
+    Decrypts secrets stored by `seal_aes_ctr_legacy`.
+    Assumes that the plaintext is unicode (non-binary).
+    """
+    key = key_service.decrypt(b64decode(material['key']))
+    digest_method = material.get('digest', DEFAULT_DIGEST)
+    ciphertext = b64decode(material['contents'])
+    if hasattr(material['hmac'], "value"):
+        hmac = codecs.decode(material['hmac'].value, "hex")
+    else:
+        hmac = codecs.decode(material['hmac'], "hex")
+    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method).decode("utf-8")
+
+
+def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
+    """
+    Encrypts `secret` using the key service.
+    You can decrypt with the companion method `open_aes_ctr_legacy`.
+    """
+    # generate a a 64 byte key.
+    # Half will be for data encryption, the other half for HMAC
+    key, encoded_key = key_service.generate_key_data(64)
+    ciphertext, hmac = _seal_aes_ctr(
+        secret, key, LEGACY_NONCE, digest_method,
+    )
+    return {
+        'key': b64encode(encoded_key).decode('utf-8'),
+        'contents': b64encode(ciphertext).decode('utf-8'),
+        'hmac': codecs.encode(hmac, "hex_codec"),
+        'digest': digest_method,
+    }
+
+
+def _open_aes_ctr(key, nonce, ciphertext, expected_hmac, digest_method):
+    data_key, hmac_key = _halve_key(key)
+    hmac = _get_hmac(hmac_key, ciphertext, digest_method)
+    # Check the HMAC before we decrypt to verify ciphertext integrity
+    if not constant_time.bytes_eq(hmac, expected_hmac):
+        raise IntegrityError("Computed HMAC on %s does not match stored HMAC")
+
+    decryptor = Cipher(
+        algorithms.AES(data_key),
+        modes.CTR(nonce),
+        backend=default_backend()
+    ).decryptor()
+    return decryptor.update(ciphertext) + decryptor.finalize()
+
+
+def _seal_aes_ctr(plaintext, key, nonce, digest_method):
+    data_key, hmac_key = _halve_key(key)
+    encryptor = Cipher(
+        algorithms.AES(data_key),
+        modes.CTR(nonce),
+        backend=default_backend()
+    ).encryptor()
+
+    ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
+    return ciphertext, _get_hmac(hmac_key, ciphertext, digest_method)
+
+
+def _get_hmac(key, ciphertext, digest_method):
+    hmac = HMAC(
+        key,
+        get_digest(digest_method),
+        backend=default_backend()
+    )
+    hmac.update(ciphertext)
+    return hmac.finalize()
+
+
+def _halve_key(key):
+    half = len(key) // 2
+    return key[:half], key[half:]
+
+
+def get_digest(digest):
+    try:
+        return _hash_classes[digest]()
+    except KeyError:
+        raise ValueError("Could not find " + digest + " in cryptography.hazmat.primitives.hashes")
+
+
+@clean_fail
+def list_credentials(region, args, **session_params):
+    credential_list = listSecrets(region=region,
+                                  table=args.table,
+                                  **session_params)
+    if credential_list:
+        # print list of credential names and versions,
+        # sorted by name and then by version
+        max_len = max([len(x["name"]) for x in credential_list])
+        for cred in sorted(credential_list,
+                           key=operator.itemgetter("name", "version")):
+            print("{0:{1}} -- version {2:>}".format(
+                cred["name"], max_len, cred["version"]))
+    else:
+        return
+
+
+def get_session_params(profile, arn):
+    params = {}
+    if profile is None and arn:
+        params = get_assumerole_credentials(arn)
+    elif profile:
+        params = dict(profile_name=profile)
+    return params
+
+
+def get_parser():
+    """get the parsers dict"""
     parsers = {}
     parsers['super'] = argparse.ArgumentParser(
         description="A credential/secret storage system")
 
     parsers['super'].add_argument("-r", "--region",
-                                  help="the AWS region in which to operate."
+                                  help="the AWS region in which to operate. "
                                   "If a region is not specified, credstash "
                                   "will use the value of the "
                                   "AWS_DEFAULT_REGION env variable, "
@@ -408,16 +682,14 @@ def main():
     role_parse.add_argument("-n", "--arn", default=None,
                             help="AWS IAM ARN for AssumeRole")
     subparsers = parsers['super'].add_subparsers(help='Try commands like '
-                                                 '"{name} get -h" or "{name}'
-                                                 'put --help" to get each'
+                                                 '"{name} get -h" or "{name} '
+                                                 'put --help" to get each '
                                                  'sub command\'s options'
-                                                 .format(name=os.path.basename(
-                                                         __file__)))
+                                                 .format(name=sys.argv[0]))
 
     action = 'delete'
     parsers[action] = subparsers.add_parser(action,
-                                            help='Delete a credential " \
-                                            "from the store')
+                                            help='Delete a credential from the store')
     parsers[action].add_argument("credential", type=str,
                                  help="the name of the credential to delete")
     parsers[action].set_defaults(action=action)
@@ -457,10 +729,10 @@ def main():
                                  help="Get a specific version of the "
                                  "credential (defaults to the latest version)")
     parsers[action].add_argument("-f", "--format", default="json",
-                                 choices=["json", "csv"] +
+                                 choices=["json", "csv", "dotenv"] +
                                  ([] if NO_YAML else ["yaml"]),
                                  help="Output format. json(default) " +
-                                 ("" if NO_YAML else "yaml ") + "or csv.")
+                                 ("" if NO_YAML else "yaml ") + " csv or dotenv.")
     parsers[action].set_defaults(action=action)
 
     action = 'list'
@@ -500,28 +772,32 @@ def main():
                                  "causes the `-v` flag to be ignored. "
                                  "(This option will fail if the currently stored "
                                  "version is not numeric.)")
+    parsers[action].add_argument("-d", "--digest", default=DEFAULT_DIGEST,
+                                 choices=HASHING_ALGORITHMS,
+                                 help="the hashing algorithm used to "
+                                 "to encrypt the data. Defaults to SHA256")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
     parsers[action].set_defaults(action=action)
+    return parsers
 
+
+def main():
+    parsers = get_parser()
     args = parsers['super'].parse_args()
 
     # Check for assume role and set  session params
-    session_params = {}
-    if args.profile is None and args.arn:
-        session_params = get_assumerole_credentials(args.arn)
-    elif args.profile:
-        session_params = dict(profile_name=args.profile)
+    session_params = get_session_params(args.profile, args.arn)
 
     try:
         region = args.region
         session = get_session(**session_params)
         session.resource('dynamodb', region_name=region)
     except botocore.exceptions.NoRegionError:
-        if not 'AWS_DEFAULT_REGION' in os.environ:
+        if 'AWS_DEFAULT_REGION' not in os.environ:
             region = DEFAULT_REGION
 
     if "action" in vars(args):
@@ -532,99 +808,16 @@ def main():
                           **session_params)
             return
         if args.action == "list":
-            credential_list = listSecrets(region=region,
-                                          table=args.table,
-                                          **session_params)
-            if credential_list:
-                # print list of credential names and versions,
-                # sorted by name and then by version
-                max_len = max([len(x["name"]) for x in credential_list])
-                for cred in sorted(credential_list,
-                                   key=operator.itemgetter("name", "version")):
-                    print("{0:{1}} -- version {2:>}".format(
-                        cred["name"], max_len, cred["version"]))
-            else:
-                return
+            list_credentials(region, args, **session_params)
+            return
         if args.action == "put":
-            if args.autoversion:
-                latestVersion = getHighestVersion(args.credential,
-                                                  region,
-                                                  args.table,
-                                                  **session_params)
-                try:
-                    version = paddedInt(int(latestVersion) + 1)
-                except ValueError:
-                    fatal("Can not autoincrement version. The current "
-                                "version: %s is not an int" % latestVersion)
-            else:
-                version = args.version
-            try:
-                if putSecret(args.credential, args.value, version,
-                             kms_key=args.key, region=region, table=args.table,
-                             context=args.context,
-                             **session_params):
-                    print("{0} has been stored".format(args.credential))
-            except KmsError as e:
-                fatal(e)
-            except botocore.exceptions.ClientError as e:
-                if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                    latestVersion = getHighestVersion(args.credential, region,
-                                                      args.table,
-                                                      **session_params)
-                    fatal("%s version %s is already in the credential store. "
-                          "Use the -v flag to specify a new version" %
-                          (args.credential, latestVersion))
-                else:
-                    fatal(e)
+            putSecretAction(args, region, **session_params)
+            return
         if args.action == "get":
-            try:
-                if WILDCARD_CHAR in args.credential:
-                    names = expand_wildcard(args.credential,
-                                            [x["name"]
-                                             for x
-                                             in listSecrets(region=region,
-                                                            table=args.table,
-                                                            **session_params)])
-                    print(json.dumps(dict((name,
-                                          getSecret(name,
-                                                    args.version,
-                                                    region=region,
-                                                    table=args.table,
-                                                    context=args.context,
-                                                    **session_params))
-                                          for name in names)))
-                else:
-                    sys.stdout.write(getSecret(args.credential, args.version,
-                                               region=region, table=args.table,
-                                               context=args.context,
-                                               **session_params))
-                    if not args.noline:
-                        sys.stdout.write("\n")
-            except ItemNotFound as e:
-                fatal(e)
-            except KmsError as e:
-                fatal(e)
-            except IntegrityError as e:
-                fatal(e)
+            getSecretAction(args, region, **session_params)
             return
         if args.action == "getall":
-            secrets = getAllSecrets(args.version,
-                                    region=region,
-                                    table=args.table,
-                                    context=args.context,
-                                    **session_params)
-            if args.format == "json":
-                output_func = json.dumps
-                output_args = {"sort_keys": True,
-                               "indent": 4,
-                               "separators": (',', ': ')}
-            elif not NO_YAML and args.format == "yaml":
-                output_func = yaml.dump
-                output_args = {"default_flow_style": False}
-            elif args.format == 'csv':
-                output_func = csv_dump
-                output_args = {}
-            print(output_func(secrets, **output_args))
+            getAllAction(args, region, **session_params)
             return
         if args.action == "setup":
             createDdbTable(region=region, table=args.table,
