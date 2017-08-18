@@ -252,7 +252,7 @@ def clean_fail(func):
 def listSecrets(region=None, table="credential-store", **kwargs):
     '''
     do a full-table scan of the credential-store,
-    and return the names and versions of every credential
+    and return the names and versions and date of active credentials
     '''
     session = get_session(**kwargs)
 
@@ -298,6 +298,12 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         'version': paddedInt(version),
     }
     data.update(sealed)
+
+    # other_tags
+    for key, value in other_tags.items():
+        if key in data.keys():
+            raise ValueError('Cannot set one of the default credstash keys as a tag name.')
+        data[key] = value
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
