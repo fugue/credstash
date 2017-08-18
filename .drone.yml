@@ -1,8 +1,0 @@
-publish:
-  pypi:
-    repository: https://repository.prod.aws.skyscnr.com/artifactory/api/pypi/pypi
-    username: "cloudops"
-    password: "@*DecE%lsq"
-    distributions:
-      - sdist
-      - bdist_wheel
