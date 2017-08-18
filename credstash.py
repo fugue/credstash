@@ -252,7 +252,7 @@ def clean_fail(func):
 def listSecrets(region=None, table="credential-store", **kwargs):
     '''
     do a full-table scan of the credential-store,
-    and return the names and versions and date of active credentials
+    and return the names and versions of every credential
     '''
     session = get_session(**kwargs)
 
