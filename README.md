@@ -49,6 +49,8 @@ After you complete the steps in the `Setup` section, you will have an encryption
 ### Stashing Secrets
 Whenever you want to store/share a credential, such as a database password, you simply run `credstash put [credential-name] [credential-value]`. For example, `credstash put myapp.db.prod supersecretpassword1234`. credstash will go to the KMS and generate a unique data encryption key, which itself is encrypted by the master key (this is called key wrapping). credstash will use the data encryption key to encrypt the credential value. It will then store the encrypted credential, along with the wrapped (encrypted) data encryption key in the credential store in DynamoDB.
 
+You can also store a credential either by referencing a file or by passing the secret in via `stdin`. To add a secret from a file, instead of passing the secret as an argument pass the filename of the file containing the secret prefixed by the `@` sign. For example, `credstash put myapp.db.prod @secret.txt`. You can also pass the credential via `stdin` by passing the `-` character as the secret argument. For example, `tr -dc '[:alnum:]' < /dev/urandom | fold -w 32 | head -n 1 | credstash put myapp.db.prod -`.
+
 ### Getting Secrets
 When you want to fetch the credential, for example as part of the bootstrap process on your web-server, you simply do `credstash get [credential-name]`. For example, `export DB_PASSWORD=$(credstash get myapp.db.prod)`. When you run `get`, credstash will go and fetch the encrypted credential and the wrapped encryption key from the credential store (DynamoDB). It will then send the wrapped encryption key to KMS, where it is decrypted with the master key. credstash then uses the decrypted data encryption key to decrypt the credential. The credential is printed to `stdout`, so you can use it in scripts or assign it to environment variables.
 
@@ -90,7 +92,7 @@ credstash uses the following AWS services:
 7. Done!
 
 ### Setting up credstash
-The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto).
+The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto). You can also install credstash with optional YAML support by running `pip install credstash[YAML]` instead.
 
 The second easiest thing to do is to do `python setup.py install` in the `credstash` directory.
 
