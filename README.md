@@ -123,18 +123,18 @@ See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standar
 
 ## Usage
 ```
-usage: credstash [-h] [-r REGION] [-t TABLE] {delete,get,getall,list,put,setup} ...
+usage: credstash [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] {delete,get,getall,list,put,setup} ...
 
 A credential/secret storage system
 
 delete
-    usage: credstash delete [-h] [-r REGION] [-t TABLE] credential
+    usage: credstash delete [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] credential
 
     positional arguments:
       credential  the name of the credential to delete
 
 get
-    usage: credstash get [-h] [-r REGION] [-t TABLE] [-k KEY] [-n] [-v VERSION]
+    usage: credstash get [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-n] [-v VERSION]
                          credential [context [context ...]]
 
     positional arguments:
@@ -149,10 +149,10 @@ get
                             scripts or with binary files)
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
-                            the latest version).
+                            the latest version)
 
 getall
-    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-v VERSION] [-f {json,yaml,csv}]
+    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-v VERSION] [-f {json,yaml,csv}]
                             [context [context ...]]
 
     positional arguments:
@@ -162,50 +162,57 @@ getall
     optional arguments:
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
-                            the latest version).
-      -f {json,yaml,csv}, --format {json,yaml,csv}
-                            Output format. json(default), yaml or csv.
+                            the latest version)
+      -f {json,csv,dotenv,yaml}, --format {json,csv,dotenv,yaml}
+                            Output format. json(default) yaml csv or dotenv.
 
 
 list
-    usage: credstash list [-h] [-r REGION] [-t TABLE]
+    usage: credstash list [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
 
 put
-usage: credstash put [-h] [-k KEY] [-v VERSION] [-a]
-                     credential value [context [context ...]]
+    usage: credstash put [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-k KEY] [-v VERSION]
+                         credential value [context [context ...]]
 
-positional arguments:
-  credential            the name of the credential to store
-  value                 the value of the credential to store or, if beginning
-                        with the "@" character, the filename of the file
-                        containing the value
-  context               encryption context key/value pairs associated with the
-                        credential in the form of "key=value"
+    positional arguments:
+      credential            the name of the credential to store
+      value                 the value of the credential to store or, if beginning
+                            with the "@" character, the filename of the file
+                            containing the value, or pass "-" to read the value
+                            from stdin
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                        README for more information. Defaults to
-                        alias/credstash
-  -v VERSION, --version VERSION
-                        Put a specific version of the credential (update the
-                        credential; defaults to version `1`).
-  -a, --autoversion     Automatically increment the version of the credential
-                        to be stored. This option causes the `-v` flag to be
-                        ignored. (This option will fail if the currently
-                        stored version is not numeric.)
+    optional arguments:
+      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
+                            README for more information. Defaults to
+                            alias/credstash
+      -v VERSION, --version VERSION
+                            Put a specific version of the credential (update the
+                            credential; defaults to version `1`).
+      -a, --autoversion     Automatically increment the version of the credential
+                            to be stored. This option causes the `-v` flag to be
+                            ignored. (This option will fail if the currently
+                            stored version is not numeric.)
+      -d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}, --digest {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}
+                            the hashing algorithm used to to encrypt the data.
+                            Defaults to SHA256
+
 
 setup
-    usage: credstash setup [-h] [-r REGION] [-t TABLE]
+    usage: credstash setup [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
 
 optional arguments:
   -r REGION, --region REGION
-                        the AWS region in which to operate. If a region is not
-                        specified, credstash will use the value of the
-                        AWS_DEFAULT_REGION env variable, or if that is not
-                        set, us-east-1
+	                    the AWS region in which to operate. If a region is not
+	                    specified, credstash will use the value of the
+	                    AWS_DEFAULT_REGION env variable, or if that is not
+	                    set, the value in `~/.aws/config`. As a last resort,
+	                    it will use us-east-1
   -t TABLE, --table TABLE
-                        DynamoDB table to use for credential storage
+	                    DynamoDB table to use for credential storage
+  -p PROFILE, --profile PROFILE
+	                    Boto config profile to use when connecting to AWS
   -n ARN, --arn ARN     AWS IAM ARN for AssumeRole
 ```
 ## IAM Policies
