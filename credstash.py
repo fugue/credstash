@@ -748,6 +748,11 @@ def get_parser():
                                  ("" if NO_YAML else "yaml ") + " csv or dotenv.")
     parsers[action].set_defaults(action=action)
 
+    action = 'keys'
+    parsers[action] = subparsers.add_parser(action,
+                                            help="List all keys in the store")
+    parsers[action].set_defaults(action=action)
+
     action = 'list'
     parsers[action] = subparsers.add_parser(action,
                                             help="list credentials and "
