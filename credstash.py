@@ -25,6 +25,8 @@ import sys
 import re
 import boto3
 import botocore.exceptions
+import calendar
+from time import gmtime
 
 try:
     from StringIO import StringIO
@@ -264,7 +266,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     return response["Items"]
 
 
-def putSecret(name, secret, version="", kms_key="alias/credstash",
+def putSecret(name, secret, version="", expiry=-1, kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
               digest=DEFAULT_DIGEST, **kwargs):
     '''
@@ -290,6 +292,10 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         'version': paddedInt(version),
     }
     data.update(sealed)
+    if expiry != -1:
+        data.update({
+            'ttl': calendar.timegm(gmtime()) + expiry
+        });
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
@@ -369,8 +375,16 @@ def putSecretAction(args, region, **session_params):
                   "version: %s is not an int" % latestVersion)
     else:
         version = args.version
+    if args.expiry != "":
+        try:
+            expiry = int(args.expiry)
+        except ValueError:
+            fatal("Expiry must be an integer value. The number "
+                    "of seconds the record will be valid for.")
+    else:
+        expiry = -1
     try:
-        if putSecret(args.credential, args.value, version,
+        if putSecret(args.credential, args.value, version, expiry,
                      kms_key=args.key, region=region, table=args.table,
                      context=args.context, digest=args.digest,
                      **session_params):
@@ -522,6 +536,14 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
     print("Waiting for table to be created...")
     client = session.client("dynamodb", region_name=region)
     client.get_waiter("table_exists").wait(TableName=table)
+
+    client.update_time_to_live(
+        TableName=table,
+        TimeToLiveSpecification={
+            'Enabled': True,
+            'AttributeName': 'ttl'
+        }
+    )
 
     print("Table has been created. "
           "Go read the README about how to create your KMS key")
@@ -776,6 +798,10 @@ def get_parser():
                                  choices=HASHING_ALGORITHMS,
                                  help="the hashing algorithm used to "
                                  "to encrypt the data. Defaults to SHA256")
+    parsers[action].add_argument("-e", "--expiry", default="",
+                                 help="Set an expiry time for this record. "
+                                 "The number of seconds the record will be "
+                                 "valid for. Defaults to -1, i.e. 'never expires'.")
     parsers[action].set_defaults(action=action)
 
     action = 'setup'
