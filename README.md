@@ -60,6 +60,9 @@ Credentials stored in the credential-store are versioned and immutable. That is,
 
 If you use incrementing integer version numbers (for example, `[1, 2, 3, ...]`), then you can use the `-a` flag with the `put` command to automatically increment the version number. However, because of the lexicographical sorting in DynamoDB, `credstash` will left-pad the version representation with zeros (for example, `[001, 025, 103, ...]`, except to 19 characters, enough to handle `sys.maxint` on 64-bit systems).
 
+### Expiring Secrets
+There may be situations where secrets can expire after a fixeds time period. For example, SSL certificates may expire after 1 year. Use the `-e` flag when you `put` a secret to set the number of seconds the record will be valid. Credstash uses the Dynamo DB TTL feature to automaticxally delete this record when the expiry period is up. Note that Dynamo DB may take up to 48 hours to delete records after the expiry period is up
+
 #### Special Note for Those Using Credstash Auto-Versioning Before December 2015
 Prior to December 2015, `credstash` auto-versioned with unpadded integers. This resulted in a sorting error once a key hit ten versions. To ensure support for versions that were not numbers (such as dates, build versions, names, etc.), the lexicographical sorting behavior was retained, but the auto-versioning behavior was changed to left-pad integer representations.
 
@@ -171,14 +174,18 @@ list
     usage: credstash list [-h] [-r REGION] [-t TABLE]
 
 put
+
 usage: credstash put [-h] [-k KEY] [-v VERSION] [-a]
+                     [-d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}]
+                     [-e EXPIRY]
                      credential value [context [context ...]]
 
 positional arguments:
   credential            the name of the credential to store
   value                 the value of the credential to store or, if beginning
                         with the "@" character, the filename of the file
-                        containing the value
+                        containing the value, or pass "-" to read the value
+                        from stdin
   context               encryption context key/value pairs associated with the
                         credential in the form of "key=value"
 
@@ -194,6 +201,13 @@ optional arguments:
                         to be stored. This option causes the `-v` flag to be
                         ignored. (This option will fail if the currently
                         stored version is not numeric.)
+  -d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}, --digest {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}
+                        the hashing algorithm used to to encrypt the data.
+                        Defaults to SHA256
+  -e EXPIRY, --expiry EXPIRY
+                        Set an expiry time for this record. The number of
+                        seconds the record will be valid for. Defaults to -1,
+                        i.e. 'never expires'.
 
 setup
     usage: credstash setup [-h] [-r REGION] [-t TABLE]
