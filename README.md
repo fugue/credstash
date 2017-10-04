@@ -174,40 +174,39 @@ list
     usage: credstash list [-h] [-r REGION] [-t TABLE]
 
 put
+    usage: credstash put [-h] [-k KEY] [-v VERSION] [-a]
+                         [-d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}]
+                         [-e EXPIRY]
+                         credential value [context [context ...]]
 
-usage: credstash put [-h] [-k KEY] [-v VERSION] [-a]
-                     [-d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}]
-                     [-e EXPIRY]
-                     credential value [context [context ...]]
+    positional arguments:
+      credential            the name of the credential to store
+      value                 the value of the credential to store or, if beginning
+                            with the "@" character, the filename of the file
+                            containing the value, or pass "-" to read the value
+                            from stdin
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
 
-positional arguments:
-  credential            the name of the credential to store
-  value                 the value of the credential to store or, if beginning
-                        with the "@" character, the filename of the file
-                        containing the value, or pass "-" to read the value
-                        from stdin
-  context               encryption context key/value pairs associated with the
-                        credential in the form of "key=value"
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                        README for more information. Defaults to
-                        alias/credstash
-  -v VERSION, --version VERSION
-                        Put a specific version of the credential (update the
-                        credential; defaults to version `1`).
-  -a, --autoversion     Automatically increment the version of the credential
-                        to be stored. This option causes the `-v` flag to be
-                        ignored. (This option will fail if the currently
-                        stored version is not numeric.)
-  -d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}, --digest {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}
-                        the hashing algorithm used to to encrypt the data.
-                        Defaults to SHA256
-  -e EXPIRY, --expiry EXPIRY
-                        Set an expiry time for this record. The number of
-                        seconds the record will be valid for. Defaults to -1,
-                        i.e. 'never expires'.
+    optional arguments:
+      -h, --help            show this help message and exit
+      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
+                            README for more information. Defaults to
+                            alias/credstash
+      -v VERSION, --version VERSION
+                            Put a specific version of the credential (update the
+                            credential; defaults to version `1`).
+      -a, --autoversion     Automatically increment the version of the credential
+                            to be stored. This option causes the `-v` flag to be
+                            ignored. (This option will fail if the currently
+                            stored version is not numeric.)
+      -d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}, --digest {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}
+                            the hashing algorithm used to to encrypt the data.
+                            Defaults to SHA256
+      -e EXPIRY, --expiry EXPIRY
+                            Set an expiry time for this record. The number of
+                            seconds the record will be valid for. Defaults to -1,
+                            i.e. 'never expires'.
 
 setup
     usage: credstash setup [-h] [-r REGION] [-t TABLE]
