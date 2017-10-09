@@ -261,7 +261,18 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
     response = secrets.scan(ProjectionExpression="#N, version",
                             ExpressionAttributeNames={"#N": "name"})
-    return response["Items"]
+    # print(response)
+    items = []
+
+    response = secrets.scan(ProjectionExpression="#N, version",
+                            ExpressionAttributeNames={"#N": "name"})
+    items = response["Items"]
+    while 'LastEvaluatedKey' in response:
+        response = secrets.scan(ProjectionExpression="#N, version",
+                                ExpressionAttributeNames={"#N": "name"},
+                                ExclusiveStartKey=response['LastEvaluatedKey'])
+        items.extend(response['Items'])
+    return items
 
 
 def putSecret(name, secret, version="", kms_key="alias/credstash",
