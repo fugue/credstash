@@ -15,14 +15,10 @@ ALGO_AES_CTR_LEGACY = 'aes-ctr-legacy'
 DEFAULT_KEY_LENGTH = 64
 
 _hash_classes = {
-    'SHA': hashes.SHA1,
     'SHA224': hashes.SHA224,
     'SHA256': hashes.SHA256,
     'SHA384': hashes.SHA384,
     'SHA512': hashes.SHA512,
-    'RIPEMD': hashes.RIPEMD160,
-    'WHIRLPOOL': hashes.Whirlpool,
-    'MD5': hashes.MD5,
 }
 
 DEFAULT_DIGEST = 'SHA256'
