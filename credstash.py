@@ -52,7 +52,6 @@ _hash_classes = {
     'SHA256': hashes.SHA256,
     'SHA384': hashes.SHA384,
     'SHA512': hashes.SHA512,
-    'RIPEMD': hashes.RIPEMD160,
     'WHIRLPOOL': hashes.Whirlpool,
     'MD5': hashes.MD5,
 }
