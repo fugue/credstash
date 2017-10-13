@@ -188,7 +188,7 @@ def value_or_filename(string):
 
 def csv_dump(dictionary):
     csvfile = StringIO()
-    csvwriter = csv.writer(csvfile)
+    csvwriter = csv.writer(csvfile, lineterminator=os.linesep)
     for key in dictionary:
         csvwriter.writerow([key, dictionary[key]])
     return csvfile.getvalue()
