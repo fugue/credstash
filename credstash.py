@@ -63,6 +63,7 @@ LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
+TEXT_CHARS = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 
 
 class KeyService(object):
@@ -561,7 +562,11 @@ def open_aes_ctr_legacy(key_service, material):
         hmac = codecs.decode(material['hmac'].value, "hex")
     else:
         hmac = codecs.decode(material['hmac'], "hex")
-    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method).decode("utf-8")
+    ret = _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method)
+    try:
+        return ret.decode("utf-8")
+    except:
+        return ret
 
 
 def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
@@ -606,9 +611,15 @@ def _seal_aes_ctr(plaintext, key, nonce, digest_method):
         backend=default_backend()
     ).encryptor()
 
-    ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
+    try:
+        ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
+    except UnicodeDecodeError as e:
+        if _is_binary_string(plaintext):
+            ciphertext = encryptor.update(plaintext) + encryptor.finalize()
     return ciphertext, _get_hmac(hmac_key, ciphertext, digest_method)
 
+def _is_binary_string(plaintext):
+    return bool(plaintext.translate(None, TEXT_CHARS))
 
 def _get_hmac(key, ciphertext, digest_method):
     hmac = HMAC(
