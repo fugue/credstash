@@ -791,14 +791,13 @@ def main():
 
     # Check for assume role and set  session params
     session_params = get_session_params(args.profile, args.arn)
+    region = args.region if args.region else None
 
     try:
-        region = args.region
         session = get_session(**session_params)
         session.resource('dynamodb', region_name=region)
     except botocore.exceptions.NoRegionError:
-        if 'AWS_DEFAULT_REGION' not in os.environ:
-            region = DEFAULT_REGION
+        region = DEFAULT_REGION
 
     if "action" in vars(args):
         if args.action == "delete":
