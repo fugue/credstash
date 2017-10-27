@@ -537,13 +537,17 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
     client = session.client("dynamodb", region_name=region)
     client.get_waiter("table_exists").wait(TableName=table)
 
-    client.update_time_to_live(
-        TableName=table,
-        TimeToLiveSpecification={
-            'Enabled': True,
-            'AttributeName': 'ttl'
-        }
-    )
+    try:
+        client.update_time_to_live(
+            TableName=table,
+            TimeToLiveSpecification={
+                'Enabled': True,
+                'AttributeName': 'ttl'
+            }
+        )
+    except botocore.exceptions.ClientError as e:
+        print("Exception while enabling TTL:")
+        print(str(e), file=sys.stderr)
 
     print("Table has been created. "
           "Go read the README about how to create your KMS key")
