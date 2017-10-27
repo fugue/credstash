@@ -259,9 +259,23 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    response = secrets.scan(ProjectionExpression="#N, version",
-                            ExpressionAttributeNames={"#N": "name"})
-    return response["Items"]
+    last_evaluated_key = True
+    items = []
+
+    while last_evaluated_key:
+        params = dict(
+            ProjectionExpression="#N, version",
+            ExpressionAttributeNames={"#N": "name"}
+        )
+        if last_evaluated_key is not True:
+            params['ExclusiveStartKey'] = last_evaluated_key
+
+        response = secrets.scan(**params)
+
+        last_evaluated_key = response.get('LastEvaluatedKey')  # will set last evaluated key to a number
+        items.extend(response['Items'])
+
+    return items
 
 
 def putSecret(name, secret, version="", kms_key="alias/credstash",
