@@ -739,7 +739,7 @@ def get_parser():
     parsers[action] = subparsers.add_parser(action, help="Get a credential "
                                             "from the store")
     parsers[action].add_argument("credential", type=str,
-                                 help="the name of the credential to get."
+                                 help="the name of the credential to get. "
                                  "Using the wildcard character '%s' will "
                                  "search for credentials that match the "
                                  "pattern" % WILDCARD_CHAR)

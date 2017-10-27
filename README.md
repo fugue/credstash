@@ -49,6 +49,8 @@ After you complete the steps in the `Setup` section, you will have an encryption
 ### Stashing Secrets
 Whenever you want to store/share a credential, such as a database password, you simply run `credstash put [credential-name] [credential-value]`. For example, `credstash put myapp.db.prod supersecretpassword1234`. credstash will go to the KMS and generate a unique data encryption key, which itself is encrypted by the master key (this is called key wrapping). credstash will use the data encryption key to encrypt the credential value. It will then store the encrypted credential, along with the wrapped (encrypted) data encryption key in the credential store in DynamoDB.
 
+You can also store a credential either by referencing a file or by passing the secret in via `stdin`. To add a secret from a file, instead of passing the secret as an argument pass the filename of the file containing the secret prefixed by the `@` sign. For example, `credstash put myapp.db.prod @secret.txt`. You can also pass the credential via `stdin` by passing the `-` character as the secret argument. For example, `tr -dc '[:alnum:]' < /dev/urandom | fold -w 32 | head -n 1 | credstash put myapp.db.prod -`.
+
 ### Getting Secrets
 When you want to fetch the credential, for example as part of the bootstrap process on your web-server, you simply do `credstash get [credential-name]`. For example, `export DB_PASSWORD=$(credstash get myapp.db.prod)`. When you run `get`, credstash will go and fetch the encrypted credential and the wrapped encryption key from the credential store (DynamoDB). It will then send the wrapped encryption key to KMS, where it is decrypted with the master key. credstash then uses the decrypted data encryption key to decrypt the credential. The credential is printed to `stdout`, so you can use it in scripts or assign it to environment variables.
 
@@ -90,7 +92,7 @@ credstash uses the following AWS services:
 7. Done!
 
 ### Setting up credstash
-The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto).
+The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto). You can also install credstash with optional YAML support by running `pip install credstash[YAML]` instead.
 
 The second easiest thing to do is to do `python setup.py install` in the `credstash` directory.
 
@@ -123,18 +125,18 @@ See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standar
 
 ## Usage
 ```
-usage: credstash [-h] [-r REGION] [-t TABLE] {delete,get,getall,list,put,setup} ...
+usage: credstash [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] {delete,get,getall,list,put,setup} ...
 
 A credential/secret storage system
 
 delete
-    usage: credstash delete [-h] [-r REGION] [-t TABLE] credential
+    usage: credstash delete [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] credential
 
     positional arguments:
       credential  the name of the credential to delete
 
 get
-    usage: credstash get [-h] [-r REGION] [-t TABLE] [-k KEY] [-n] [-v VERSION]
+    usage: credstash get [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-n] [-v VERSION]
                          credential [context [context ...]]
 
     positional arguments:
@@ -149,10 +151,10 @@ get
                             scripts or with binary files)
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
-                            the latest version).
+                            the latest version)
 
 getall
-    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-v VERSION] [-f {json,yaml,csv}]
+    usage: credstash getall [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-v VERSION] [-f {json,yaml,csv}]
                             [context [context ...]]
 
     positional arguments:
@@ -162,50 +164,57 @@ getall
     optional arguments:
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
-                            the latest version).
-      -f {json,yaml,csv}, --format {json,yaml,csv}
-                            Output format. json(default), yaml or csv.
+                            the latest version)
+      -f {json,csv,dotenv,yaml}, --format {json,csv,dotenv,yaml}
+                            Output format. json(default) yaml csv or dotenv.
 
 
 list
-    usage: credstash list [-h] [-r REGION] [-t TABLE]
+    usage: credstash list [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
 
 put
-usage: credstash put [-h] [-k KEY] [-v VERSION] [-a]
-                     credential value [context [context ...]]
+    usage: credstash put [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-k KEY] [-v VERSION]
+                         credential value [context [context ...]]
 
-positional arguments:
-  credential            the name of the credential to store
-  value                 the value of the credential to store or, if beginning
-                        with the "@" character, the filename of the file
-                        containing the value
-  context               encryption context key/value pairs associated with the
-                        credential in the form of "key=value"
+    positional arguments:
+      credential            the name of the credential to store
+      value                 the value of the credential to store or, if beginning
+                            with the "@" character, the filename of the file
+                            containing the value, or pass "-" to read the value
+                            from stdin
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                        README for more information. Defaults to
-                        alias/credstash
-  -v VERSION, --version VERSION
-                        Put a specific version of the credential (update the
-                        credential; defaults to version `1`).
-  -a, --autoversion     Automatically increment the version of the credential
-                        to be stored. This option causes the `-v` flag to be
-                        ignored. (This option will fail if the currently
-                        stored version is not numeric.)
+    optional arguments:
+      -k KEY, --key KEY     the KMS key-id of the master key to use. See the
+                            README for more information. Defaults to
+                            alias/credstash
+      -v VERSION, --version VERSION
+                            Put a specific version of the credential (update the
+                            credential; defaults to version `1`).
+      -a, --autoversion     Automatically increment the version of the credential
+                            to be stored. This option causes the `-v` flag to be
+                            ignored. (This option will fail if the currently
+                            stored version is not numeric.)
+      -d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}, --digest {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}
+                            the hashing algorithm used to to encrypt the data.
+                            Defaults to SHA256
+
 
 setup
-    usage: credstash setup [-h] [-r REGION] [-t TABLE]
+    usage: credstash setup [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
 
 optional arguments:
   -r REGION, --region REGION
-                        the AWS region in which to operate. If a region is not
-                        specified, credstash will use the value of the
-                        AWS_DEFAULT_REGION env variable, or if that is not
-                        set, us-east-1
+	                    the AWS region in which to operate. If a region is not
+	                    specified, credstash will use the value of the
+	                    AWS_DEFAULT_REGION env variable, or if that is not
+	                    set, the value in `~/.aws/config`. As a last resort,
+	                    it will use us-east-1
   -t TABLE, --table TABLE
-                        DynamoDB table to use for credential storage
+	                    DynamoDB table to use for credential storage
+  -p PROFILE, --profile PROFILE
+	                    Boto config profile to use when connecting to AWS
   -n ARN, --arn ARN     AWS IAM ARN for AssumeRole
 ```
 ## IAM Policies
