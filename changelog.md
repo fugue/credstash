@@ -8,6 +8,7 @@
 * Updated: @gene1wood, @nkhoshini, and @wyattwalter updated the docs
 * Bugfix: @pm990320 fixed a bug by adding pagination for large credential stores
 * Bugfix: @artburkart fixed a bug where writing csv files did not have proper line separators
+* Removed: Python 3.2 removed from build matrix
 
 ## 1.13.4
 * Set upper bound of `cryptography` to 2.1
