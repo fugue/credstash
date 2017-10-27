@@ -664,6 +664,19 @@ def list_credentials(region, args, **session_params):
         return
 
 
+@clean_fail
+def list_credential_keys(region, args, **session_params):
+    credential_list = listSecrets(region=region,
+                                  table=args.table,
+                                  **session_params)
+    if credential_list:
+        creds = sorted(set([cred["name"] for cred in credential_list]))
+        for cred in creds:
+            print(cred)
+    else:
+        return
+
+
 def get_session_params(profile, arn):
     params = {}
     if profile is None and arn:
@@ -755,6 +768,11 @@ def get_parser():
                                  ("" if NO_YAML else "yaml ") + " csv or dotenv.")
     parsers[action].set_defaults(action=action)
 
+    action = 'keys'
+    parsers[action] = subparsers.add_parser(action,
+                                            help="List all keys in the store")
+    parsers[action].set_defaults(action=action)
+
     action = 'list'
     parsers[action] = subparsers.add_parser(action,
                                             help="list credentials and "
@@ -829,6 +847,9 @@ def main():
             return
         if args.action == "list":
             list_credentials(region, args, **session_params)
+            return
+        if args.action == "keys":
+            list_credential_keys(region, args, **session_params)
             return
         if args.action == "put":
             putSecretAction(args, region, **session_params)
