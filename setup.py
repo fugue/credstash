@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='credstash',
-    version='1.13.4',
+    version='1.14.0',
     description='A utility for managing secrets in the cloud using AWS KMS and DynamoDB',
     license='Apache2',
     url='https://github.com/LuminalOSS/credstash',
