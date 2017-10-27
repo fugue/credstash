@@ -813,7 +813,7 @@ def get_parser():
                                  help="the KMS key-id of the master key "
                                  "to use. See the README for more "
                                  "information. Defaults to alias/credstash")
-    parsers[action].add_argument("-v", "--version", default="",
+    parsers[action].add_argument("-v", "--version", default="1",
                                  help="Put a specific version of the "
                                  "credential (update the credential; "
                                  "defaults to version `1`).")
