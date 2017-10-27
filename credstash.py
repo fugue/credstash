@@ -390,6 +390,19 @@ def putSecretAction(args, region, **session_params):
 
 
 @clean_fail
+def putAllSecretsAction(args, region, **session_params):
+    credentials = json.loads(args.credentials)
+
+    for credential, value in credentials.items():
+        try:
+            args.credential = credential
+            args.value = value
+            putSecretAction(args, region, **session_params)
+        except SystemExit as e:
+            pass
+
+
+@clean_fail
 def getSecretAction(args, region, **session_params):
     try:
         if WILDCARD_CHAR in args.credential:
@@ -816,6 +829,40 @@ def get_parser():
                                  "to encrypt the data. Defaults to SHA256")
     parsers[action].set_defaults(action=action)
 
+    action = 'putall'
+    parsers[action] = subparsers.add_parser(action,
+                                            help="Put credentials from json into "
+                                                 "the store")
+    parsers[action].add_argument("credentials", type=value_or_filename,
+                                 help="the value of the credential to store "
+                                      "or, if beginning with the \"@\" character, "
+                                      "the filename of the file containing "
+                                      "the values, or pass \"-\" to read the values "
+                                      "from stdin. Should be in json format.", default="")
+    parsers[action].add_argument("context", type=key_value_pair,
+                                 action=KeyValueToDictionary, nargs='*',
+                                 help="encryption context key/value pairs "
+                                      "associated with the credential in the form "
+                                      "of \"key=value\"")
+    parsers[action].add_argument("-k", "--key", default="alias/credstash",
+                                 help="the KMS key-id of the master key "
+                                      "to use. See the README for more "
+                                      "information. Defaults to alias/credstash")
+    parsers[action].add_argument("-v", "--version", default="",
+                                 help="Put a specific version of the "
+                                      "credential (update the credential; "
+                                      "defaults to version `1`).")
+    parsers[action].add_argument("-a", "--autoversion", action="store_true",
+                                 help="Automatically increment the version of "
+                                      "the credential to be stored. This option "
+                                      "causes the `-v` flag to be ignored. "
+                                      "(This option will fail if the currently stored "
+                                      "version is not numeric.)")
+    parsers[action].add_argument("-d", "--digest", default="SHA256",
+                                 choices=HASHING_ALGORITHMS,
+                                 help="the hashing algorithm used to "
+                                      "to encrypt the data. Defaults to SHA256")
+    parsers[action].set_defaults(action=action)
     action = 'setup'
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
@@ -853,6 +900,9 @@ def main():
             return
         if args.action == "put":
             putSecretAction(args, region, **session_params)
+            return
+        if args.action == "putall":
+            putAllSecretsAction(args, region, **session_params)
             return
         if args.action == "get":
             getSecretAction(args, region, **session_params)
