@@ -14,7 +14,7 @@ setup(
     scripts=['credstash.py'],
     py_modules=['credstash'],
     install_requires=[
-        'cryptography>=1.5, <2.1',
+        'cryptography>=1.5',
         'boto3>=1.1.1',
     ],
     extras_require={
