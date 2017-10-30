@@ -60,7 +60,6 @@ _hash_classes = {
 DEFAULT_DIGEST = 'SHA256'
 HASHING_ALGORITHMS = _hash_classes.keys()
 LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 
@@ -665,13 +664,10 @@ def get_parser():
         description="A credential/secret storage system")
 
     parsers['super'].add_argument("-r", "--region",
-                                  help="the AWS region in which to operate. "
+                                  help="The AWS region in which to operate. "
                                   "If a region is not specified, credstash "
-                                  "will use the value of the "
-                                  "AWS_DEFAULT_REGION env variable, "
-                                  "or if that is not set, the value in "
-                                  "`~/.aws/config`. As a last resort, "
-                                  "it will use " + DEFAULT_REGION)
+                                  "will follow the default credential provider"
+                                  "chain as defined in the boto3 documentation.")
     parsers['super'].add_argument("-t", "--table", default="credential-store",
                                   help="DynamoDB table to use for "
                                   "credential storage")
@@ -796,8 +792,8 @@ def main():
     try:
         session = get_session(**session_params)
         session.resource('dynamodb', region_name=region)
-    except botocore.exceptions.NoRegionError:
-        region = DEFAULT_REGION
+    except botocore.exceptions.NoRegionError as e:
+        fatal(e)
 
     if "action" in vars(args):
         if args.action == "delete":
