@@ -63,7 +63,7 @@ LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
-TEXT_CHARS = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+TEXT_CHARS = bytearray(set([7, 8, 9, 10, 12, 13, 27]) | set(range(0x20, 0x100)) - set([0x7f]))
 
 
 class KeyService(object):
