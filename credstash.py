@@ -340,8 +340,21 @@ def getAllSecrets(version="", region=None, table="credential-store",
                                            dynamodb,
                                            kms,
                                            **kwargs)
-        except:
-            pass
+        except KmsError as e:
+            # might indicate mismatching encryption context, but not necessarily an emergency.
+            # log an error and continue
+            printStdErr('error fetching credential {}'.format(credential))
+            printStdErr(e)
+        except botocore.exceptions.ClientError as e:
+            # we can't return an accurate set of credentials because we can't
+            # fetch at least one k/v pair - log an error and exit
+            printStdErr('error fetching credential {}'.format(credential))
+            fatal(e)
+        except Exception as e:
+            # probably pretty bad, and arguably we should exit here too
+            printStdErr('error fetching credential {}'.format(credential))
+            printStdErr(e)
+
     return output
 
 
