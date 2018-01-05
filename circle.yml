@@ -20,7 +20,7 @@ test:
 
 deployment:
   pypi:
-    tag: v/[0-9]+(\.[0-9]+)*/
+    tag: /[0-9]+(\.[0-9]+)*/
     owner: globality-corp
     commands:
       - echo "[distutils]" > ~/.pypirc
