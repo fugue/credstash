@@ -2,7 +2,7 @@
 from setuptools import setup
 
 name = 'credstash-any-crypto'
-version = '1.14.0'
+version = 'version = "1.14.1"'
 
 setup(
     name=name,
