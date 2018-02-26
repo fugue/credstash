@@ -13,7 +13,7 @@ import credstash
 
 
 def main():
-    UPDATED_DIGEST = 'SHA512'
+    UPDATED_DIGEST = 'SHA256'
     DIGESTS_TO_UPDATE = ['WHIRLPOOL', 'RIPEMD']
 
     keys = defaultdict(lambda:0)
