@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-name = 'credstash-any-crypto'
+name = 'credstash'
 version = '1.14.1'
 
 setup(
@@ -9,7 +9,7 @@ setup(
     version=version,
     description='A utility for managing secrets in the cloud using AWS KMS and DynamoDB',
     license='Apache2',
-    url="https://github.com/globality-corp/credstash",
+    url="https://github.com/fugue/credstash",
     classifiers=[
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
