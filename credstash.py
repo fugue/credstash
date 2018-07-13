@@ -46,6 +46,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.hmac import HMAC
 from cryptography.hazmat.primitives import constant_time
 
+from multiprocessing.dummy import Pool as ThreadPool
+
 _hash_classes = {
     'SHA': hashes.SHA1,
     'SHA224': hashes.SHA224,
@@ -61,6 +63,7 @@ LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
+THREAD_POOL_MAX_SIZE = 64
 
 
 class KeyService(object):
@@ -311,7 +314,6 @@ def getAllSecrets(version="", region=None, table="credential-store",
     '''
     fetch and decrypt all secrets
     '''
-    output = {}
     if session is None:
         session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -328,19 +330,14 @@ def getAllSecrets(version="", region=None, table="credential-store",
     else:
         names = set(x["name"] for x in secrets)
 
-    for credential in names:
-        try:
-            output[credential] = getSecret(credential,
-                                           version,
-                                           region,
-                                           table,
-                                           context,
-                                           dynamodb,
-                                           kms,
-                                           **kwargs)
-        except:
-            pass
-    return output
+    pool = ThreadPool(min(len(names), THREAD_POOL_MAX_SIZE))
+    results = pool.map(
+        lambda credential: getSecret(credential, version, region, table, context, dynamodb, kms, **kwargs),
+        names)
+    pool.close()
+    pool.join()
+    return dict(zip(names, results))
+
 
 
 @clean_fail
