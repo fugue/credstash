@@ -265,8 +265,8 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
     while last_evaluated_key:
         params = dict(
-            ProjectionExpression="#N, version",
-            ExpressionAttributeNames={"#N": "name"}
+            ProjectionExpression="#N, version, #C",
+            ExpressionAttributeNames={"#N": "name", "#C": "comment"}
         )
         if last_evaluated_key is not True:
             params['ExclusiveStartKey'] = last_evaluated_key
@@ -281,7 +281,7 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              digest=DEFAULT_DIGEST, **kwargs):
+              digest=DEFAULT_DIGEST, comment="", **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -304,6 +304,8 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         'name': name,
         'version': paddedInt(version),
     }
+    if comment:
+        data['comment'] = comment
     data.update(sealed)
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
@@ -381,7 +383,7 @@ def putSecretAction(args, region, **session_params):
     try:
         if putSecret(args.credential, args.value, version,
                      kms_key=args.key, region=region, table=args.table,
-                     context=args.context, digest=args.digest,
+                     context=args.context, digest=args.digest, comment=args.comment,
                      **session_params):
             print("{0} has been stored".format(args.credential))
     except KmsError as e:
@@ -680,8 +682,8 @@ def list_credentials(region, args, **session_params):
         max_len = max([len(x["name"]) for x in credential_list])
         for cred in sorted(credential_list,
                            key=operator.itemgetter("name", "version")):
-            print("{0:{1}} -- version {2:>}".format(
-                cred["name"], max_len, cred["version"]))
+            print("{0:{1}} -- version {2:>} -- comment {3}".format(
+                cred["name"], max_len, cred["version"], cred.get("comment", "")))
     else:
         return
 
@@ -822,6 +824,9 @@ def get_parser():
                                  help="the KMS key-id of the master key "
                                  "to use. See the README for more "
                                  "information. Defaults to alias/credstash")
+    parsers[action].add_argument("-c", "--comment", type=str,
+                                 help="Include reference information or a comment about "
+                                 "value to be stored.")
     parsers[action].add_argument("-v", "--version", default="1",
                                  help="Put a specific version of the "
                                  "credential (update the credential; "
