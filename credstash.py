@@ -25,6 +25,7 @@ import sys
 import re
 import boto3
 import botocore.exceptions
+import heapq
 
 try:
     from StringIO import StringIO
@@ -310,6 +311,27 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
+def keep_highest_version(secrets):
+    '''
+    Filter secrets to only have the highest version for each key
+    '''
+    if secrets == None or secrets == []:
+        return secrets
+    d = {}
+    # Create a dict of list of secrets
+    # indexed by the key name
+    for secret in secrets:
+        key = secret['name']
+        if key in d:
+            d[key].append(secret['version'])
+        else:
+            d[key] = [secret['version']]
+    results = [
+            {"name": key, "version": heapq.nlargest(1, d[key])[0]}
+            for key in d
+            ]
+    return results
+
 
 def getAllSecrets(version="", region=None, table="credential-store",
                   context=None, credential=None, session=None, **kwargs):
@@ -321,24 +343,31 @@ def getAllSecrets(version="", region=None, table="credential-store",
     dynamodb = session.resource('dynamodb', region_name=region)
     kms = session.client('kms', region_name=region)
     secrets = listSecrets(region, table, **kwargs)
+    if not version:
+        # Just keep the highest version
+        secrets = keep_highest_version(secrets)
 
     # Only return the secrets that match the pattern in `credential`
     # This already works out of the box with the CLI get action,
     # but that action doesn't support wildcards when using as library
     if credential and WILDCARD_CHAR in credential:
-        names = set(expand_wildcard(credential,
-                                    [x["name"]
-                                     for x in secrets]))
-    else:
-        names = set(x["name"] for x in secrets)
+        for secret in secrets:
+            secret['name'] = expand_wildcard(credential, secret['name'])
 
-    pool = ThreadPool(min(len(names), THREAD_POOL_MAX_SIZE))
+    # Get materials
+    materials = getMaterials(secrets, dynamodb, version, table, **kwargs)
+
+    pool = ThreadPool(min(len(secrets), THREAD_POOL_MAX_SIZE))
+    # Decrypt Materials
     results = pool.map(
-        lambda credential: getSecret(credential, version, region, table, context, dynamodb, kms, **kwargs),
-        names)
+        lambda material: decryptSecret(material,
+            kms, context,  **kwargs),
+        materials)
+
     pool.close()
     pool.join()
-    return dict(zip(names, results))
+    results = dict(zip([x["name"] for x in materials], results))
+    return results
 
 
 
@@ -460,23 +489,19 @@ def getSecretAction(args, region, **session_params):
     except IntegrityError as e:
         fatal(e)
 
-
-def getSecret(name, version="", region=None,
+def getMaterial(name, version="", region=None,
               table="credential-store", context=None,
-              dynamodb=None, kms=None, **kwargs):
+              dynamodb=None, **kwargs):
+
     '''
-    fetch and decrypt the secret called `name`
+    fetch the encrypted secret (non decrypted) called `name`
     '''
+
     if not context:
         context = {}
-
-    # Can we cache
-    if dynamodb is None or kms is None:
+    if dynamodb is None:
         session = get_session(**kwargs)
-        if dynamodb is None:
-            dynamodb = session.resource('dynamodb', region_name=region)
-        if kms is None:
-            kms = session.client('kms', region_name=region)
+        dynamodb = session.resource('dynamodb', region_name=region)
 
     secrets = dynamodb.Table(table)
 
@@ -495,11 +520,85 @@ def getSecret(name, version="", region=None,
             raise ItemNotFound(
                 "Item {'name': '%s', 'version': '%s'} couldn't be found." % (name, version))
         material = response["Item"]
+    return material
+
+def getMaterials(secrets, dynamodb, version="",
+              table="credential-store",
+              **kwargs):
+
+    '''
+    fetch the encrypted secrets (non decrypted)
+    secrets param a list of dynamoDB keys
+    for e.g. a list of {"name": "***", "version": "***"}
+    required dynamodb
+    '''
+
+
+    materials = []
+    n = len(secrets)
+    if n > 100:
+        # Split secrets into smaller chunks
+        nb_chunks = n / 100 + 1
+        for i in range(nb_chunks):
+            start = i * 100
+            end = (i + 1) * 100
+            small_secrets = secrets[start:end]
+            materials.extend(
+                    getMaterials(small_secrets, dynamodb, version,
+                        table, **kwargs)
+                    )
+        return materials
+    if version:
+        for secret in secrets:
+            secret['version'] = version
+    unprocessed_keys = secrets
+    while unprocessed_keys:
+        response = dynamodb.batch_get_item(RequestItems = {
+            table: { 'Keys': unprocessed_keys }
+            })
+        materials.extend(response['Responses'][table])
+        if 'UnprocessedKeys' in response['Responses']:
+            unprocessed_keys = response['Responses']['UnprocessedKeys'][table]
+        else:
+            unprocessed_keys = None
+    return materials
+
+def decryptSecret(material, kms=None,
+        context = None,
+        **kwargs
+        ):
+    if not context:
+        context = {}
+    if kms is None:
+        session = get_session(**kwargs)
+        kms = session.client('kms', region_name=region)
 
     key_service = KeyService(kms, None, context)
 
     return open_aes_ctr_legacy(key_service, material)
 
+def getSecret(name, version="", region=None,
+              table="credential-store", context=None,
+              dynamodb=None, kms=None, **kwargs):
+    '''
+    fetch and decrypt the secret called `name`
+    '''
+    if not context:
+      context = {}
+
+    # Can we cache
+    if dynamodb is None or kms is None:
+        session = get_session(**kwargs)
+        if dynamodb is None:
+            dynamodb = session.resource('dynamodb', region_name=region)
+        if kms is None:
+            kms = session.client('kms', region_name=region)
+
+    material = getMaterial(name, version, region,
+            table, context, dynamodb, **kwargs
+            )
+
+    return decryptSecret(material, kms, context, **kwargs)
 
 @clean_fail
 def deleteSecrets(name, region=None, table="credential-store",
