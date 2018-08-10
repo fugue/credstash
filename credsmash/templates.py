@@ -11,7 +11,7 @@ import click
 import jinja2.sandbox
 
 import credsmash.api
-from .util import read_many, shell_quote, parse_manifest, detect_format, ItemNotFound
+from .util import read_many, minjson, envfile_quote, shell_quote, parse_manifest, detect_format, ItemNotFound
 from .cli import main
 
 logger = logging.getLogger(__name__)
@@ -206,4 +206,6 @@ def _make_env():
     )
     env.filters['sh'] = shell_quote
     env.filters['jsonify'] = json.dumps
+    env.filters['minjson'] = minjson
+    env.filters['env'] = envfile_quote
     return env

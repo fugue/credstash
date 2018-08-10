@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import os
+from collections import OrderedDict
 
 import six
 from six.moves import configparser
@@ -198,3 +199,18 @@ def shell_quote(s):
 
     return "'" + s.replace("'", "'\"'\"'") + "'"
 
+
+def envfile_quote(s):
+    """Return a envfile-escaped version of the string *s*."""
+    if not s:
+        return '""'
+    s = s.replace('\\', '\\\\')
+    s = s.replace('\n', '\\n\\\n')
+    s = s.replace('"', '\\"')
+    return '"' + s + '"'
+
+
+def minjson(s):
+    """A filter to parse & re-minify json"""
+    o = json.loads(s, object_pairs_hook=OrderedDict)
+    return json.dumps(o)
