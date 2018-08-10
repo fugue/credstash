@@ -2,16 +2,12 @@ language: python
 python:
 - '2.7'
 install:
-- pip install -U pip wheel pytest-runner setupext-pip~=1.0.5
-- python setup.py requirements -t -e documentation -e templates -e yaml
-- python setup.py develop
+- pip install -U pip pytest
+- pip install -e .[dev]
 script:
-- python setup.py test
+- py.test .
 cache:
   pip: true
-addons:
-  apt_packages:
-  - pandoc
 deploy:
   provider: pypi
   user: nathan-muir

@@ -1,14 +1,7 @@
 import codecs
-import sys
 from os.path import dirname, join
 
 from setuptools import setup, find_packages
-
-needs_pytest = {'pytest', 'test', 'ptr'}.intersection(sys.argv)
-pytest_runner = ['pytest-runner'] if needs_pytest else []
-
-needs_setupext_pip = {'requirements'}.intersection(sys.argv)
-setupext_pip = ['setupext-pip~=1.0.5'] if needs_setupext_pip else []
 
 here = dirname(__file__)
 
@@ -24,16 +17,6 @@ def find_version(*file_paths):
     return version
 
 
-def read_markdown(*file_paths):
-    try:
-        import pandoc.core
-        doc = pandoc.core.Document()
-        doc.markdown = read(*file_paths)
-        return doc.rst
-    except ImportError:
-        return ''
-
-
 setup(
     name='credsmash',
     version=find_version('credsmash', 'VERSION'),
@@ -45,7 +28,8 @@ setup(
 
     license='Apache2',
     description='A utility for managing secrets in the cloud using AWS KMS and DynamoDB',
-    long_description=read_markdown('README.md'),
+    long_description=read('README.md'),
+    long_description_content_type='text/markdown',
 
     packages=find_packages(exclude=('tests',)),
 
@@ -53,7 +37,6 @@ setup(
         'credsmash': ['VERSION']
     },
 
-    setup_requires=[] + pytest_runner + setupext_pip,
     install_requires=[
         'cryptography',
         'boto3',
@@ -66,7 +49,8 @@ setup(
     extras_require={
         'yaml': ['PyYAML'],
         'templates': ['jinja2'],
-        'documentation': ['pyandoc'],
+        'documentation': [],
+        'dev': ['PyYAML', 'jinja2', 'pytest']
     },
     entry_points={
         'console_scripts': [
