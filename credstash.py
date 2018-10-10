@@ -459,7 +459,7 @@ def getSecretAction(args, region, **session_params):
                                        region=region, table=args.table,
                                        context=args.context,
                                        **session_params))
-            if not args.noline:
+            if args.newline:
                 sys.stdout.write("\n")
     except ItemNotFound as e:
         fatal(e)
@@ -767,10 +767,8 @@ def get_parser():
                                  help="encryption context key/value pairs "
                                  "associated with the credential in the form "
                                  "of \"key=value\"")
-    parsers[action].add_argument("-n", "--noline", action="store_true",
-                                 help="Don't append newline to returned "
-                                 "value (useful in scripts or with "
-                                 "binary files)")
+    parsers[action].add_argument("-e", "--newline", action="store_true",
+                                 help="Append newline to returned value")
     parsers[action].add_argument("-v", "--version", default="",
                                  help="Get a specific version of the "
                                  "credential (defaults to the latest version)")
