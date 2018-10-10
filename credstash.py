@@ -767,6 +767,7 @@ def get_parser():
                                  help="encryption context key/value pairs "
                                  "associated with the credential in the form "
                                  "of \"key=value\"")
+    parsers[action].add_argument("-n", "--noline", help=argparse.SUPPRESS)
     parsers[action].add_argument("-e", "--newline", action="store_true",
                                  help="Append newline to returned value")
     parsers[action].add_argument("-v", "--version", default="",
