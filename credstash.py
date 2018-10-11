@@ -144,7 +144,7 @@ def printStdOut(s):
     if hasattr(sys.stdout, 'buffer'):
         sys.stdout.buffer.write(s)
     else:
-        sys.stdout.write(binaryBuffer)
+        sys.stdout.write(s)
 
 
 def fatal(s):
