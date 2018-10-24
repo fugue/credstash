@@ -141,6 +141,13 @@ def printStdErr(s):
     sys.stderr.write("\n")
 
 
+def printStdOut(s):
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout.buffer.write(s)
+    else:
+        sys.stdout.write(s)
+
+
 def fatal(s):
     printStdErr(s)
     sys.exit(1)
@@ -168,23 +175,24 @@ def value_or_filename(string):
     # string to this function before it passes the actual value.
     # If an empty string is passes in, just return an empty string
     if string == "":
-        return ""
+        return "".encode()
 
+    output = ""
     if string == '-':
         try:
-            return sys.stdin.read()
+            output = sys.stdin.read().encode()
         except KeyboardInterrupt:
             raise argparse.ArgumentTypeError("Unable to read value from stdin")
     elif string[0] == "@":
         filename = string[1:]
         try:
-            with open(os.path.expanduser(filename)) as f:
+            with open(os.path.expanduser(filename), 'rb') as f:
                 output = f.read()
         except IOError:
             raise argparse.ArgumentTypeError("Unable to read file %s" %
                                              filename)
     else:
-        output = string
+        output = string.encode()
     return output
 
 
@@ -364,7 +372,7 @@ def getAllAction(args, region, **session_params):
     elif args.format == 'dotenv':
         output_func = dotenv_dump
         output_args = {}
-    print(output_func(secrets, **output_args))
+    printStdout(output_func(secrets, **output_args))
 
 
 @clean_fail
@@ -449,13 +457,13 @@ def getSecretAction(args, region, **session_params):
             elif args.format == 'dotenv':
                 output_func = dotenv_dump
                 output_args = {}
-            sys.stdout.write(output_func(secrets, **output_args))
+            printStdout(output_func(secrets, **output_args))
         else:
-            sys.stdout.write(getSecret(args.credential, args.version,
+            printStdout(getSecret(args.credential, args.version,
                                        region=region, table=args.table,
                                        context=args.context,
                                        **session_params))
-            if not args.noline:
+            if args.newline:
                 sys.stdout.write("\n")
     except ItemNotFound as e:
         fatal(e)
@@ -619,7 +627,7 @@ def open_aes_ctr_legacy(key_service, material):
         hmac = codecs.decode(material['hmac'].value, "hex")
     else:
         hmac = codecs.decode(material['hmac'], "hex")
-    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method).decode("utf-8")
+    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method)
 
 
 def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
@@ -656,7 +664,7 @@ def _open_aes_ctr(key, nonce, ciphertext, expected_hmac, digest_method):
     return decryptor.update(ciphertext) + decryptor.finalize()
 
 
-def _seal_aes_ctr(plaintext, key, nonce, digest_method):
+def _seal_aes_ctr(data, key, nonce, digest_method):
     data_key, hmac_key = _halve_key(key)
     encryptor = Cipher(
         algorithms.AES(data_key),
@@ -664,7 +672,7 @@ def _seal_aes_ctr(plaintext, key, nonce, digest_method):
         backend=default_backend()
     ).encryptor()
 
-    ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
+    ciphertext = encryptor.update(data) + encryptor.finalize()
     return ciphertext, _get_hmac(hmac_key, ciphertext, digest_method)
 
 
@@ -778,10 +786,9 @@ def get_parser():
                                  help="encryption context key/value pairs "
                                  "associated with the credential in the form "
                                  "of \"key=value\"")
-    parsers[action].add_argument("-n", "--noline", action="store_true",
-                                 help="Don't append newline to returned "
-                                 "value (useful in scripts or with "
-                                 "binary files)")
+    parsers[action].add_argument("-n", "--noline", help=argparse.SUPPRESS)
+    parsers[action].add_argument("-e", "--newline", action="store_true",
+                                 help="Append newline to returned value")
     parsers[action].add_argument("-v", "--version", default="",
                                  help="Get a specific version of the "
                                  "credential (defaults to the latest version)")
