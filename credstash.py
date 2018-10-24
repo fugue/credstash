@@ -564,7 +564,22 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
 
     print("Waiting for table to be created...")
     client = session.client("dynamodb", region_name=region)
+
+    response = client.describe_table(TableName=table)
+
     client.get_waiter("table_exists").wait(TableName=table)
+
+    print("Adding tag...")
+
+    client.tag_resource(
+        ResourceArn=response["Table"]["TableArn"],
+        Tags=[
+            {
+                'Key': "Name",
+                'Value': "credstash"
+            },
+        ]
+    )
 
     print("Table has been created. "
           "Go read the README about how to create your KMS key")
