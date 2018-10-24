@@ -39,6 +39,7 @@ except ImportError:
 
 from base64 import b64encode, b64decode
 from boto3.dynamodb.conditions import Attr
+from getpass import getpass
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -381,7 +382,10 @@ def putSecretAction(args, region, **session_params):
     else:
         version = args.version
     try:
-        if putSecret(args.credential, args.value, version,
+        value = args.value
+        if(args.prompt):
+            value = getpass("{}: ".format(args.credential))
+        if putSecret(args.credential, value, version,
                      kms_key=args.key, region=region, table=args.table,
                      context=args.context, digest=args.digest, comment=args.comment,
                      **session_params):
@@ -814,7 +818,7 @@ def get_parser():
                                  "or, if beginning with the \"@\" character, "
                                  "the filename of the file containing "
                                  "the value, or pass \"-\" to read the value "
-                                 "from stdin", default="")
+                                 "from stdin", default="", nargs="?")
     parsers[action].add_argument("context", type=key_value_pair,
                                  action=KeyValueToDictionary, nargs='*',
                                  help="encryption context key/value pairs "
@@ -841,6 +845,8 @@ def get_parser():
                                  choices=HASHING_ALGORITHMS,
                                  help="the hashing algorithm used to "
                                  "to encrypt the data. Defaults to SHA256")
+    parsers[action].add_argument("-P", "--prompt", action="store_true",
+                                 help="Prompt for secret")
     parsers[action].set_defaults(action=action)
 
     action = 'putall'
