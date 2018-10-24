@@ -121,6 +121,9 @@ aws_secret_access_key= SKIDEXAMPLE2103429812039423
 
 Then, by setting the `AWS_PROFILE` environment variable to the name of the profile, (dev or prod, in this case), you can point credstash at the appropriate account.
 
+For example:
+export AWS_PROFILE=dev ( or AWS_PROFILE=prod )
+
 See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standardized-Way-to-Manage-Credentials-in-the-AWS-SDKs for more information.
 
 ## Usage
