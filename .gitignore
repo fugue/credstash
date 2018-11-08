@@ -62,3 +62,6 @@ target/
 .DS_Store
 *swp
 *scratch*.py
+
+#Ignore MyPy Cache
+.mypy_cache/

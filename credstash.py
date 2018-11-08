@@ -427,14 +427,14 @@ def getSecretAction(args, region, **session_params):
                                      in listSecrets(region=region,
                                                     table=args.table,
                                                     **session_params)])
-            secrets = dict((name,
-                            getSecret(name,
-                                      args.version,
-                                      region=region,
-                                      table=args.table,
-                                      context=args.context,
-                                      **session_params))
-                          for name in names)
+
+            pool = ThreadPool(min(len(names), THREAD_POOL_MAX_SIZE))
+            results = pool.map(
+                lambda credential: getSecret(credential, args.version, region, args.table, args.context, **session_params),
+                names)
+            pool.close()
+            pool.join()
+            secrets =dict(zip(names, results))
             if args.format == "json":
                 output_func = json.dumps
                 output_args = {"sort_keys": True,
