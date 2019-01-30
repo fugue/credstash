@@ -743,9 +743,13 @@ def get_parser():
                                   "or if that is not set, the value in "
                                   "`~/.aws/config`. As a last resort, "
                                   "it will use " + DEFAULT_REGION)
-    parsers['super'].add_argument("-t", "--table", default="credential-store",
-                                  help="DynamoDB table to use for "
-                                  "credential storage")
+    parsers['super'].add_argument("-t", "--table", default=os.environ.get("CREDSTASH_DEFAULT_TABLE", "credential-store"),
+                                  help="DynamoDB table to use for credential storage. "
+                                  "If not specified, credstash "
+                                  "will use the value of the "
+                                  "CREDSTASH_DEFAULT_TABLE env variable, "
+                                  "or if that is not set, the value "
+                                  "`credential-store` will be used")
     role_parse = parsers['super'].add_mutually_exclusive_group()
     role_parse.add_argument("-p", "--profile", default=None,
                             help="Boto config profile to use when "
