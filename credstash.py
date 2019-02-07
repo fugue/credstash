@@ -512,11 +512,22 @@ def deleteSecrets(name, region=None, table="credential-store",
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    response = secrets.scan(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
-                            ProjectionExpression="#N, version",
-                            ExpressionAttributeNames={"#N": "name"})
+    last_evaluated_key = True
+    items = []
 
-    for secret in response["Items"]:
+    while last_evaluated_key:
+        params = dict(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
+                      ProjectionExpression="#N, version",
+                      ExpressionAttributeNames={"#N": "name"}
+        )
+        if last_evaluated_key is not True:
+            params['ExclusiveStartKey'] = last_evaluated_key
+
+        response = secrets.scan(**params)
+        last_evaluated_key = response.get('LastEvaluatedKey')  # will set last evaluated key to a number
+        items.extend(response['Items'])
+
+    for secret in items:
         print("Deleting %s -- version %s" %
               (secret["name"], secret["version"]))
         secrets.delete_item(Key=secret)
