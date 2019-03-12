@@ -10,6 +10,7 @@ import sys
 import boto3
 import click
 import pkg_resources
+import six
 
 import credsmash.api
 from credsmash.crypto import ALGO_AES_CTR
@@ -86,7 +87,7 @@ class Environment(object):
               help="the KMS key-id of the master key "
                    "to use. See the README for more "
                    "information. Defaults to alias/credsmash")
-@click.option('--context', type=(unicode, unicode), multiple=True,
+@click.option('--context', type=(six.text_type, six.text_type), multiple=True,
               help="the KMS encryption context to use."
                    "Only works if --key-id is passed.")
 @click.pass_context
@@ -234,7 +235,7 @@ def cmd_prune_many(ctx, pattern):
 
 @main.command('get')
 @click.argument('secret_name')
-@click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
+@click.argument('destination', type=click.File('wb'), required=False, default='-')
 @click.option('-f', '--format', 'fmt', default=None)
 @click.option('--version', '-v', default=None, type=click.INT)
 @click.pass_context
@@ -254,7 +255,7 @@ def cmd_get_one(ctx, secret_name, destination, fmt=None, version=None):
 
 
 @main.command('get-all')
-@click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
+@click.argument('destination', type=click.File('wb'), required=False, default='-')
 @click.option('-f', '--format', 'fmt', default=None)
 @click.pass_context
 def cmd_get_all(ctx, destination, fmt):
@@ -279,7 +280,7 @@ def cmd_get_all(ctx, destination, fmt):
 
 @main.command('find-one')
 @click.argument('pattern')
-@click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
+@click.argument('destination', type=click.File('wb'), required=False, default='-')
 @click.option('-f', '--format', 'fmt', default=None)
 @click.option('--version', '-v', default=None)
 @click.pass_context
@@ -310,7 +311,7 @@ def cmd_find_one(ctx, pattern, destination, fmt=None, version=None):
 
 @main.command('find-many')
 @click.argument('pattern')
-@click.argument('destination', type=click.File('wb'), required=False, default=sys.stdout)
+@click.argument('destination', type=click.File('wb'), required=False, default='-')
 @click.option('-f', '--format', 'fmt', default=None)
 @click.pass_context
 def cmd_find_many(ctx, pattern, destination, fmt=None):

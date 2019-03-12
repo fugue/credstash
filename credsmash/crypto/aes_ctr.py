@@ -1,7 +1,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from base64 import b64encode, b64decode
 import os
+import base64
+import binascii
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -22,7 +23,7 @@ _hash_classes = {
 }
 
 DEFAULT_DIGEST = 'SHA256'
-HASHING_ALGORITHMS = _hash_classes.keys()
+HASHING_ALGORITHMS = list(_hash_classes.keys())
 LEGACY_NONCE = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 
@@ -73,13 +74,13 @@ def open_aes_ctr_legacy(key_service, material):
     """
     Decrypts secrets stored by `seal_aes_ctr_legacy`.
 
-    Assumes that the plaintext is unicode (non-binary).
+    Assumes that the plaintext is str (non-binary).
     """
-    key = key_service.decrypt(b64decode(material['key']))
+    key = key_service.decrypt(_from_b64(material['key']))
     digest_method = material.get('digest', DEFAULT_DIGEST)
-    ciphertext = b64decode(material['contents'])
-    hmac = material['hmac'].decode('hex')
-    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method).decode("utf-8")
+    ciphertext = _from_b64(material['contents'])
+    hmac = _from_hex(material['hmac'])
+    return _open_aes_ctr(key, LEGACY_NONCE, ciphertext, hmac, digest_method)
 
 
 def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
@@ -97,9 +98,9 @@ def seal_aes_ctr_legacy(key_service, secret, digest_method=DEFAULT_DIGEST):
         secret, key, LEGACY_NONCE, digest_method,
     )
     return {
-        'key': b64encode(encoded_key).decode('utf-8'),
-        'contents': b64encode(ciphertext).decode('utf-8'),
-        'hmac': hmac.encode('hex'),
+        'key': _to_b64(encoded_key),
+        'contents': _to_b64(ciphertext),
+        'hmac': _to_hex(hmac),
         'digest': digest_method,
     }
 
@@ -151,6 +152,24 @@ def get_digest(digest):
         return _hash_classes[digest]()
     except KeyError:
         raise ValueError("Could not find " + digest + " in cryptography.hazmat.primitives.hashes")
+
+
+def _to_hex(b):  # type (bytes): -> str
+    return binascii.hexlify(b).decode('ascii')
+
+
+def _from_hex(s):  # type: (str) -> bytes
+    return binascii.unhexlify(s)
+
+
+def _to_b64(b):  # type (bytes): -> str
+    b2 = base64.b64encode(b)
+    return b2.decode('ascii')
+
+
+def _from_b64(s):  # type (str): -> bytes
+    b = s.encode('ascii')
+    return base64.b64decode(b)
 
 
 class IntegrityError(Exception):

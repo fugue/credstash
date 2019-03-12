@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
+# from typing import Any, Optional
 
 from credsmash.crypto import seal_secret, open_secret, ALGO_AES_CTR
 
@@ -12,6 +13,7 @@ def put_secret(
         plaintext, version=None, compare=True,
         algorithm=ALGO_AES_CTR, **seal_kwargs
 ):
+    # type: (Any, Any, str, bytes, Optional[int], bool, str, ...) -> int
     if version is None:
         latest_secret = storage_service.get_one(secret_name)
         version = 1
