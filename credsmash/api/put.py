@@ -12,14 +12,6 @@ def put_secret(
         plaintext, version=None, compare=True,
         algorithm=ALGO_AES_CTR, **seal_kwargs
 ):
-    sealed = seal_secret(
-        key_service,
-        plaintext,
-        algorithm=algorithm,
-        binary_type=storage_service.binary_type,
-        **seal_kwargs
-    )
-
     if version is None:
         latest_secret = storage_service.get_one(secret_name)
         version = 1
@@ -31,5 +23,12 @@ def put_secret(
                     logger.debug('secret "%s" is unchanged', secret_name)
                     return latest_secret['version']
 
+    sealed = seal_secret(
+        key_service,
+        plaintext,
+        algorithm=algorithm,
+        binary_type=storage_service.binary_type,
+        **seal_kwargs
+    )
     storage_service.put_one(secret_name, version, sealed)
     return version
