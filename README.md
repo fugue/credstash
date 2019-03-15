@@ -205,7 +205,7 @@ positional arguments:
 
 
 setup
-    usage: credstash setup [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
+    usage: credstash setup [-h] [--tags [TAGS [TAGS ...]]] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
 
 optional arguments:
   -r REGION, --region REGION
