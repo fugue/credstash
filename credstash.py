@@ -912,7 +912,7 @@ def get_parser():
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
     parsers[action].add_argument("--tags", type=key_value_pair,
-                                  help="Tags to apply to the Dynamodb Table"
+                                  help="Tags to apply to the Dynamodb Table "
                                   "passed in as a space sparated list of Key=Value", nargs="*")
     parsers[action].set_defaults(action=action)
     return parsers
