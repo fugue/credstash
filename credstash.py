@@ -148,7 +148,7 @@ def fatal(s):
 
 def key_value_pair(string):
     output = string.split('=')
-    if len(output) != 2:
+    if len(output) != 2 or '' in output:
         msg = "%r is not the form of \"key=value\"" % string
         raise argparse.ArgumentTypeError(msg)
     return output
