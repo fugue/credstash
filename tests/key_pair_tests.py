@@ -12,7 +12,11 @@ class TestKeyValuePairExtraction(unittest.TestCase):
         self.assertRaises(argparse.ArgumentTypeError, key_value_pair, "")
 
     def test_key_value_pair_has_one_equals(self):
-        self.assertEqual(key_value_pair("="), ["", ""])
+        self.assertRaises(argparse.ArgumentTypeError, key_value_pair, "key1=key2=key3")
+
+    def test_key_value_pair_has_both_key_and_value(self):
+        self.assertRaises(argparse.ArgumentTypeError, key_value_pair, "key=")
+        self.assertRaises(argparse.ArgumentTypeError, key_value_pair, "=value")
 
     def test_key_value_pair_has_one_equals_with_values(self):
         self.assertEqual(key_value_pair("key1=value1"), ["key1", "value1"])

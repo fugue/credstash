@@ -148,7 +148,7 @@ def fatal(s):
 
 def key_value_pair(string):
     output = string.split('=')
-    if len(output) != 2:
+    if len(output) != 2 or '' in output:
         msg = "%r is not the form of \"key=value\"" % string
         raise argparse.ArgumentTypeError(msg)
     return output
@@ -911,7 +911,7 @@ def get_parser():
     action = 'setup'
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
-    parsers[action].add_argument("--tags",
+    parsers[action].add_argument("--tags", type=key_value_pair,
                                   help="Tags to apply to the Dynamodb Table"
                                   "passed in as a space sparated list of Key=Value", nargs="*")
     parsers[action].set_defaults(action=action)
