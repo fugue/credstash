@@ -505,6 +505,12 @@ def getSecret(name, version="", region=None,
     return open_aes_ctr_legacy(key_service, material)
 
 
+def deleteAll(response, secrets):
+    for secret in response["Items"]:
+        print("Deleting %s -- version %s" %
+              (secret["name"], secret["version"]))
+        secrets.delete_item(Key=secret)
+
 @clean_fail
 def deleteSecrets(name, region=None, table="credential-store",
                   **kwargs):
@@ -515,11 +521,13 @@ def deleteSecrets(name, region=None, table="credential-store",
     response = secrets.scan(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
                             ProjectionExpression="#N, version",
                             ExpressionAttributeNames={"#N": "name"})
-
-    for secret in response["Items"]:
-        print("Deleting %s -- version %s" %
-              (secret["name"], secret["version"]))
-        secrets.delete_item(Key=secret)
+    deleteAll(response, secrets)
+    while 'LastEvaluatedKey' in response:
+        response = secrets.scan(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
+                                ProjectionExpression="#N, version",
+                                ExpressionAttributeNames={"#N": "name"},
+                                ExclusiveStartKey=response['LastEvaluatedKey'])
+        deleteAll(response, secrets)
 
 
 @clean_fail
