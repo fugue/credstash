@@ -261,20 +261,19 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    last_evaluated_key = True
     items = []
+    response = {'LastEvaluatedKey': None}
 
-    while last_evaluated_key:
+    while 'LastEvaluatedKey' in response:
         params = dict(
             ProjectionExpression="#N, version, #C",
             ExpressionAttributeNames={"#N": "name", "#C": "comment"}
         )
-        if last_evaluated_key is not True:
-            params['ExclusiveStartKey'] = last_evaluated_key
+        if response['LastEvaluatedKey']:
+            params['ExclusiveStartKey'] = response['LastEvaluatedKey']
 
         response = secrets.scan(**params)
 
-        last_evaluated_key = response.get('LastEvaluatedKey')  # will set last evaluated key to a number
         items.extend(response['Items'])
 
     return items
@@ -512,14 +511,23 @@ def deleteSecrets(name, region=None, table="credential-store",
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    response = secrets.scan(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
-                            ProjectionExpression="#N, version",
-                            ExpressionAttributeNames={"#N": "name"})
+    response = {'LastEvaluatedKey': None}
 
-    for secret in response["Items"]:
-        print("Deleting %s -- version %s" %
-              (secret["name"], secret["version"]))
-        secrets.delete_item(Key=secret)
+    while 'LastEvaluatedKey' in response:
+        params = dict(
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('name').eq(name),
+            ProjectionExpression="#N, version",
+            ExpressionAttributeNames={"#N": "name"},
+        )
+        if response['LastEvaluatedKey']:
+            params['ExclusiveStartKey'] = response['LastEvaluatedKey']
+
+        response = secrets.query(**params)
+
+        for secret in response["Items"]:
+            print("Deleting %s -- version %s" %
+                  (secret["name"], secret["version"]))
+            secrets.delete_item(Key=secret)
 
 
 @clean_fail
@@ -713,7 +721,7 @@ def list_credential_keys(region, args, **session_params):
                                   table=args.table,
                                   **session_params)
     if credential_list:
-        creds = sorted(set([cred["name"] for cred in credential_list]))
+        creds = sorted(set(cred["name"] for cred in credential_list))
         for cred in creds:
             print(cred)
     else:
