@@ -148,7 +148,7 @@ def fatal(s):
 
 def key_value_pair(string):
     output = string.split('=')
-    if len(output) != 2:
+    if len(output) != 2 or '' in output:
         msg = "%r is not the form of \"key=value\"" % string
         raise argparse.ArgumentTypeError(msg)
     return output
@@ -523,7 +523,7 @@ def deleteSecrets(name, region=None, table="credential-store",
 
 
 @clean_fail
-def createDdbTable(region=None, table="credential-store", **kwargs):
+def createDdbTable(region=None, table="credential-store", tags=None, **kwargs):
     '''
     create the secret store table in DDB in the specified region
     '''
@@ -569,7 +569,7 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
 
     client.get_waiter("table_exists").wait(TableName=table)
 
-    print("Adding tag...")
+    print("Adding tags...")
 
     client.tag_resource(
         ResourceArn=response["Table"]["TableArn"],
@@ -580,6 +580,16 @@ def createDdbTable(region=None, table="credential-store", **kwargs):
             },
         ]
     )
+
+    if tags:
+        tagset = []
+        for i in tags:
+            tag = i.split('=')
+            tagset.append({'Key': tag[0], 'Value': tag[1]})
+        client.tag_resource(
+            ResourceArn=response["Table"]["TableArn"],
+            Tags=tagset
+        )
 
     print("Table has been created. "
           "Go read the README about how to create your KMS key")
@@ -901,6 +911,9 @@ def get_parser():
     action = 'setup'
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
+    parsers[action].add_argument("--tags", type=key_value_pair,
+                                  help="Tags to apply to the Dynamodb Table "
+                                  "passed in as a space sparated list of Key=Value", nargs="*")
     parsers[action].set_defaults(action=action)
     return parsers
 
@@ -947,7 +960,7 @@ def main():
             return
         if args.action == "setup":
             createDdbTable(region=region, table=args.table,
-                           **session_params)
+                           tags=args.tags, **session_params)
             return
     else:
         parsers['super'].print_help()
