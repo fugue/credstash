@@ -929,6 +929,9 @@ def get_parser():
                                  help="Put a specific version of the "
                                       "credential (update the credential; "
                                       "defaults to version `1`).")
+    parsers[action].add_argument("-c", "--comment", type=str,
+                                 help="Include reference information or a comment about "
+                                 "value to be stored.")
     parsers[action].add_argument("-a", "--autoversion", action="store_true",
                                  help="Automatically increment the version of "
                                       "the credential to be stored. This option "
