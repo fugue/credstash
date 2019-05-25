@@ -311,6 +311,25 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
 
 
+def putSecretAutoversion(name, secret, kms_key="alias/credstash",
+                         region=None, table="credential-store", context=None,
+                         digest=DEFAULT_DIGEST, comment="", **kwargs):
+    """
+    This function put secrets to credstash using autoversioning
+    :return:
+    """
+
+    latest_version = getHighestVersion(name=name, table=table)
+    incremented_version = paddedInt(int(latest_version) + 1)
+    try:
+        putSecret(name=name, secret=secret, version=incremented_version,
+                  kms_key=kms_key, region=region, table=table,
+                  context=context, digest=digest, comment=comment, **kwargs)
+        print("Secret '{0}' has been stored in table {1}".format(name, table))
+    except KmsError as e:
+        fatal(e)
+
+
 def getAllSecrets(version="", region=None, table="credential-store",
                   context=None, credential=None, session=None, **kwargs):
     '''
