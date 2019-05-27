@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.16.0 (forthcoming)
+* New: @freddyVandalay added a programmatic way to autoversion: `putSecretAutoversion`
+* New: @corrjo added the ability to tag the `credstash` DDB table using `credstash setup --tags Tag=Value`
+* New: @alkersan added the ability to specify the `credstash` DDB table using an environment variable
+* Bugfix: @dbanttari fixed large deletes and made them more efficient by using `query` instead of `scan`
+* Bugfix: Update to pyyaml>=4.2b1 due to security vulnerability in older versions
+
 ## 1.15.0
 * New: Arthur Burkart added credential comments
 * Updated: added tox, and improved packaging
