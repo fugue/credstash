@@ -281,15 +281,21 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              digest=DEFAULT_DIGEST, comment="", **kwargs):
+              digest=DEFAULT_DIGEST, comment="", kms=None, dynamodb=None, **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
     if not context:
         context = {}
-    session = get_session(**kwargs)
-    kms = session.client('kms', region_name=region)
+
+    if dynamodb is None or kms is None:
+        session = get_session(**kwargs)
+        if dynamodb is None:
+            dynamodb = session.resource('dynamodb', region_name=region)
+        if kms is None:
+            kms = session.client('kms', region_name=region)
+
     key_service = KeyService(kms, kms_key, context)
     sealed = seal_aes_ctr_legacy(
         key_service,
@@ -297,7 +303,6 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         digest_method=digest,
     )
 
-    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     data = {
@@ -513,6 +518,8 @@ def getSecret(name, version="", region=None,
             raise ItemNotFound("Item {'name': '%s'} couldn't be found." % name)
         material = response["Items"][0]
     else:
+        if len(version) < PAD_LEN:
+            version = paddedInt(int(version))
         response = secrets.get_item(Key={"name": name, "version": version})
         if "Item" not in response:
             raise ItemNotFound(
