@@ -7,6 +7,7 @@
 * New: @cheethoe added the ability to pass custom dynamodb/kms sessions to `putSecret`
 * Bugfix: @dbanttari fixed large deletes and made them more efficient by using `query` instead of `scan`
 * Bugfix: Update to pyyaml>=4.2b1 due to security vulnerability in older versions
+* Added basic integration tests
 
 ## 1.15.0
 * New: Arthur Burkart added credential comments
