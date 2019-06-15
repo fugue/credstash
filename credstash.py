@@ -518,6 +518,8 @@ def getSecret(name, version="", region=None,
             raise ItemNotFound("Item {'name': '%s'} couldn't be found." % name)
         material = response["Items"][0]
     else:
+        if len(version) < PAD_LEN:
+            version = paddedInt(int(version))
         response = secrets.get_item(Key={"name": name, "version": version})
         if "Item" not in response:
             raise ItemNotFound(
