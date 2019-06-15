@@ -4,6 +4,7 @@
 * New: @freddyVandalay added a programmatic way to autoversion: `putSecretAutoversion`
 * New: @corrjo added the ability to tag the `credstash` DDB table using `credstash setup --tags Tag=Value`
 * New: @alkersan added the ability to specify the `credstash` DDB table using an environment variable
+* New: @cheethoe added the ability to pass custom dynamodb/kms sessions to `putSecret`
 * Bugfix: @dbanttari fixed large deletes and made them more efficient by using `query` instead of `scan`
 * Bugfix: Update to pyyaml>=4.2b1 due to security vulnerability in older versions
 
