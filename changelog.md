@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.16.0 (forthcoming)
+## 1.16.0
 * New: @freddyVandalay added a programmatic way to autoversion: `putSecretAutoversion`
 * New: @corrjo added the ability to tag the `credstash` DDB table using `credstash setup --tags Tag=Value`
 * New: @alkersan added the ability to specify the `credstash` DDB table using an environment variable
