@@ -80,7 +80,7 @@ class KeyService(object):
                 KeyId=self.key_id, EncryptionContext=self.encryption_context, NumberOfBytes=number_of_bytes
             )
         except Exception as e:
-            raise KmsError("Could not generate key using KMS key %s (Detail: %s)" % (self.key_id, e.message))
+            raise KmsError("Could not generate key using KMS key %s (Details: %s)" % (self.key_id, str(e)))
         return kms_response['Plaintext'], kms_response['CiphertextBlob']
 
     def decrypt(self, encoded_key):
@@ -261,20 +261,19 @@ def listSecrets(region=None, table="credential-store", **kwargs):
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    last_evaluated_key = True
     items = []
+    response = {'LastEvaluatedKey': None}
 
-    while last_evaluated_key:
+    while 'LastEvaluatedKey' in response:
         params = dict(
             ProjectionExpression="#N, version, #C",
             ExpressionAttributeNames={"#N": "name", "#C": "comment"}
         )
-        if last_evaluated_key is not True:
-            params['ExclusiveStartKey'] = last_evaluated_key
+        if response['LastEvaluatedKey']:
+            params['ExclusiveStartKey'] = response['LastEvaluatedKey']
 
         response = secrets.scan(**params)
 
-        last_evaluated_key = response.get('LastEvaluatedKey')  # will set last evaluated key to a number
         items.extend(response['Items'])
 
     return items
@@ -282,15 +281,21 @@ def listSecrets(region=None, table="credential-store", **kwargs):
 
 def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
-              digest=DEFAULT_DIGEST, comment="", **kwargs):
+              digest=DEFAULT_DIGEST, comment="", kms=None, dynamodb=None, **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
     '''
     if not context:
         context = {}
-    session = get_session(**kwargs)
-    kms = session.client('kms', region_name=region)
+
+    if dynamodb is None or kms is None:
+        session = get_session(**kwargs)
+        if dynamodb is None:
+            dynamodb = session.resource('dynamodb', region_name=region)
+        if kms is None:
+            kms = session.client('kms', region_name=region)
+
     key_service = KeyService(kms, kms_key, context)
     sealed = seal_aes_ctr_legacy(
         key_service,
@@ -298,7 +303,6 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         digest_method=digest,
     )
 
-    dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
     data = {
@@ -310,6 +314,25 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
     data.update(sealed)
 
     return secrets.put_item(Item=data, ConditionExpression=Attr('name').not_exists())
+
+
+def putSecretAutoversion(name, secret, kms_key="alias/credstash",
+                         region=None, table="credential-store", context=None,
+                         digest=DEFAULT_DIGEST, comment="", **kwargs):
+    """
+    This function put secrets to credstash using autoversioning
+    :return:
+    """
+
+    latest_version = getHighestVersion(name=name, table=table)
+    incremented_version = paddedInt(int(latest_version) + 1)
+    try:
+        putSecret(name=name, secret=secret, version=incremented_version,
+                  kms_key=kms_key, region=region, table=table,
+                  context=context, digest=digest, comment=comment, **kwargs)
+        print("Secret '{0}' has been stored in table {1}".format(name, table))
+    except KmsError as e:
+        fatal(e)
 
 
 def getAllSecrets(version="", region=None, table="credential-store",
@@ -412,6 +435,7 @@ def putAllSecretsAction(args, region, **session_params):
         try:
             args.credential = credential
             args.value = value
+            args.comment = None
             putSecretAction(args, region, **session_params)
         except SystemExit as e:
             pass
@@ -494,6 +518,8 @@ def getSecret(name, version="", region=None,
             raise ItemNotFound("Item {'name': '%s'} couldn't be found." % name)
         material = response["Items"][0]
     else:
+        if len(version) < PAD_LEN:
+            version = paddedInt(int(version))
         response = secrets.get_item(Key={"name": name, "version": version})
         if "Item" not in response:
             raise ItemNotFound(
@@ -512,14 +538,23 @@ def deleteSecrets(name, region=None, table="credential-store",
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
 
-    response = secrets.scan(FilterExpression=boto3.dynamodb.conditions.Attr("name").eq(name),
-                            ProjectionExpression="#N, version",
-                            ExpressionAttributeNames={"#N": "name"})
+    response = {'LastEvaluatedKey': None}
 
-    for secret in response["Items"]:
-        print("Deleting %s -- version %s" %
-              (secret["name"], secret["version"]))
-        secrets.delete_item(Key=secret)
+    while 'LastEvaluatedKey' in response:
+        params = dict(
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('name').eq(name),
+            ProjectionExpression="#N, version",
+            ExpressionAttributeNames={"#N": "name"},
+        )
+        if response['LastEvaluatedKey']:
+            params['ExclusiveStartKey'] = response['LastEvaluatedKey']
+
+        response = secrets.query(**params)
+
+        for secret in response["Items"]:
+            print("Deleting %s -- version %s" %
+                  (secret["name"], secret["version"]))
+            secrets.delete_item(Key=secret)
 
 
 @clean_fail
@@ -723,7 +758,7 @@ def list_credential_keys(region, args, **session_params):
                                   table=args.table,
                                   **session_params)
     if credential_list:
-        creds = sorted(set([cred["name"] for cred in credential_list]))
+        creds = sorted(set(cred["name"] for cred in credential_list))
         for cred in creds:
             print(cred)
     else:
@@ -753,9 +788,13 @@ def get_parser():
                                   "or if that is not set, the value in "
                                   "`~/.aws/config`. As a last resort, "
                                   "it will use " + DEFAULT_REGION)
-    parsers['super'].add_argument("-t", "--table", default="credential-store",
-                                  help="DynamoDB table to use for "
-                                  "credential storage")
+    parsers['super'].add_argument("-t", "--table", default=os.environ.get("CREDSTASH_DEFAULT_TABLE", "credential-store"),
+                                  help="DynamoDB table to use for credential storage. "
+                                  "If not specified, credstash "
+                                  "will use the value of the "
+                                  "CREDSTASH_DEFAULT_TABLE env variable, "
+                                  "or if that is not set, the value "
+                                  "`credential-store` will be used")
     role_parse = parsers['super'].add_mutually_exclusive_group()
     role_parse.add_argument("-p", "--profile", default=None,
                             help="Boto config profile to use when "
@@ -897,6 +936,9 @@ def get_parser():
                                  help="Put a specific version of the "
                                       "credential (update the credential; "
                                       "defaults to version `1`).")
+    parsers[action].add_argument("-c", "--comment", type=str,
+                                 help="Include reference information or a comment about "
+                                 "value to be stored.")
     parsers[action].add_argument("-a", "--autoversion", action="store_true",
                                  help="Automatically increment the version of "
                                       "the credential to be stored. This option "

@@ -312,6 +312,13 @@ The target deployment-story for `credstash` is an EC2 instance running with an I
 python -m unittest discover -v tests "*.py"
 ```
 
+### Running the integration tests using BATS
+1. The integration tests require a working install of credstash. I recommend not using your primary development/production install.
+2. Download and install BATS: https://github.com/sstephenson/bats 
+3. Run the tests: `bats integration_tests/`
+
+New integration test PRs are welcome!
+
 ## Frequently Asked Questions (FAQ)
 
 ### 1. Where is the master key stored?
