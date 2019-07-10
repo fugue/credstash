@@ -618,8 +618,7 @@ def createDdbTable(region=None, table="credential-store", tags=None, **kwargs):
 
     if tags:
         tagset = []
-        for i in tags:
-            tag = i.split('=')
+        for tag in tags:
             tagset.append({'Key': tag[0], 'Value': tag[1]})
         client.tag_resource(
             ResourceArn=response["Table"]["TableArn"],
