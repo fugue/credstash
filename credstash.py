@@ -436,6 +436,7 @@ def putAllSecretsAction(args, region, **session_params):
             args.credential = credential
             args.value = value
             args.comment = None
+            args.prompt = None
             putSecretAction(args, region, **session_params)
         except SystemExit as e:
             pass
