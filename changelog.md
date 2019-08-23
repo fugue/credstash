@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.1
+* Bugfix: @corrjo fixed a bug in the tagging feature 
+* Bugfix: @jamebus fixed a bug in `putall`
+
 ## 1.16.0
 * New: @freddyVandalay added a programmatic way to autoversion: `putSecretAutoversion`
 * New: @corrjo added the ability to tag the `credstash` DDB table using `credstash setup --tags Tag=Value`
