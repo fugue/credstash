@@ -41,7 +41,7 @@ A number of great projects exist to provide credstash compatability with other l
 - https://github.com/DavidTanner/nodecredstash (Node.js)
 - https://github.com/winebarrel/gcredstash (Go)
 - https://github.com/Narochno/Narochno.Credstash (C#)
-
+- https://github.com/republicwireless-open/erlcredstash (Erlang)
 
 ## How does it work?
 After you complete the steps in the `Setup` section, you will have an encryption key in KMS (in this README, we will refer to that key as the `master key`), and a credential storage table in DDB.
