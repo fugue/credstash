@@ -251,12 +251,13 @@ def clean_fail(func):
     return func_wrapper
 
 
-def listSecrets(region=None, table="credential-store", **kwargs):
+def listSecrets(region=None, table="credential-store", session=None, **kwargs):
     '''
     do a full-table scan of the credential-store,
     and return the names and versions of every credential
     '''
-    session = get_session(**kwargs)
+    if session is None:
+        session = get_session(**kwargs)
 
     dynamodb = session.resource('dynamodb', region_name=region)
     secrets = dynamodb.Table(table)
@@ -344,7 +345,7 @@ def getAllSecrets(version="", region=None, table="credential-store",
         session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
     kms = session.client('kms', region_name=region)
-    secrets = listSecrets(region, table, **kwargs)
+    secrets = listSecrets(region, table, session, **kwargs)
 
     # Only return the secrets that match the pattern in `credential`
     # This already works out of the box with the CLI get action,
