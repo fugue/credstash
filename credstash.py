@@ -554,6 +554,19 @@ def getSecret(name, version="", region=None, table="credential-store", context=N
     '''
     fetch and decrypt the secret called `name`
     '''
+    secret, context = getSecretAndContext(name=name, version=version, region=region,
+                                          table=table, context=context, dynamodb=dynamodb,
+                                          kms=kms, **kwargs)
+    return secret
+
+
+def getSecretAndContext(name, version="", region=None,
+                        table="credential-store", context=None,
+                        dynamodb=None, kms=None, **kwargs):
+    """
+    fetch and decrypt the secret called `name`, and also return its version and
+    comments.
+    """
     if not context:
         context = {}
 
@@ -587,7 +600,10 @@ def getSecret(name, version="", region=None, table="credential-store", context=N
 
     key_service = KeyService(kms, None, context)
 
-    return open_aes_ctr_legacy(key_service, material)
+    return (
+        open_aes_ctr_legacy(key_service, material),
+        {"version": material.get("version"), "comment": material.get("comment")}
+    )
 
 
 @clean_fail
