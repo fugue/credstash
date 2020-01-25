@@ -270,6 +270,7 @@ def clean_fail(func):
     return func_wrapper
 
 
+@clean_fail
 def listSecrets(region=None, table="credential-store", session=None, **kwargs):
     '''
     do a full-table scan of the credential-store,
@@ -298,7 +299,7 @@ def listSecrets(region=None, table="credential-store", session=None, **kwargs):
 
     return items
 
-
+@clean_fail
 def putSecret(name, secret, version="", kms_key="alias/credstash",
               region=None, table="credential-store", context=None,
               digest=DEFAULT_DIGEST, comment="", kms=None, dynamodb=None, **kwargs):
@@ -509,7 +510,7 @@ def getSecretAction(args, region, **session_params):
     except IntegrityError as e:
         fatal(e)
 
-
+@clean_fail
 def getSecret(name, version="", region=None,
               table="credential-store", context=None,
               dynamodb=None, kms=None, **kwargs):
@@ -999,6 +1000,7 @@ def main():
     # Check for assume role and set  session params
     session_params = get_session_params(args.profile, args.arn)
 
+    # test for region
     try:
         region = args.region
         session = get_session(**session_params)
