@@ -108,7 +108,7 @@ class KeyService(object):
 class KmsError(Exception):
 
     def __init__(self, value=""):
-        self.value = "KMS ERROR: " + value if value is not "" else "KMS ERROR"
+        self.value = "KMS ERROR: " + value if value != "" else "KMS ERROR"
 
     def __str__(self):
         return self.value
@@ -117,7 +117,7 @@ class KmsError(Exception):
 class IntegrityError(Exception):
 
     def __init__(self, value=""):
-        self.value = "INTEGRITY ERROR: " + value if value is not "" else \
+        self.value = "INTEGRITY ERROR: " + value if value != "" else \
                      "INTEGRITY ERROR"
 
     def __str__(self):
