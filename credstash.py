@@ -819,7 +819,7 @@ def get_parser():
         help="Set the log level, default WARNING",
         default='WARNING'
     )
-    parsers['super'].add_argument("-log-file",
+    parsers['super'].add_argument("--log-file",
         help="Set the log output file, default credstash.log. Errors are "
         "printed to stderr and stack traces are logged to file",
         default='credstash.log'

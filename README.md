@@ -217,7 +217,7 @@ optional arguments:
 	                    it will use us-east-1
   --log-level LOG_LEVEL
                         Set the log level, default WARNING
-  -log-file LOG_FILE    Set the log output file, default credstash.log. Errors
+  --log-file LOG_FILE    Set the log output file, default credstash.log. Errors
                         are printed to stderr and stack traces are logged to
                         file                      
   -t TABLE, --table TABLE
