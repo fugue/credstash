@@ -25,6 +25,7 @@ import sys
 import re
 import boto3
 import botocore.exceptions
+import logging
 
 try:
     from StringIO import StringIO
@@ -66,6 +67,20 @@ PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 THREAD_POOL_MAX_SIZE = 64
 
+logger = logging.getLogger('credstash')
+
+def setup_logging(level, log_file):
+    if logger.hasHandlers():
+        for h in logger.handlers:
+            logger.removeHandler(h)
+    handler = logging.FileHandler(log_file)
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler) 
+    logger.setLevel(level)
+
+# setup logging with default values when imported as a lib
+setup_logging(logging.WARNING, 'credstash.log')
 
 class KeyService(object):
 
@@ -247,7 +262,11 @@ def clean_fail(func):
             return func(*args, **kwargs)
         except botocore.exceptions.ClientError as e:
             print(str(e), file=sys.stderr)
-            sys.exit(1)
+            logger.exception(e)
+        except Exception as e:
+            print(str(e), file=sys.stderr)
+            logger.exception(e)
+        sys.exit(1)
     return func_wrapper
 
 
@@ -796,6 +815,15 @@ def get_parser():
                                   "CREDSTASH_DEFAULT_TABLE env variable, "
                                   "or if that is not set, the value "
                                   "`credential-store` will be used")
+    parsers['super'].add_argument("--log-level", 
+        help="Set the log level, default WARNING",
+        default='WARNING'
+    )
+    parsers['super'].add_argument("-log-file",
+        help="Set the log output file, default credstash.log. Errors are "
+        "printed to stderr and stack traces are logged to file",
+        default='credstash.log'
+    )
     role_parse = parsers['super'].add_mutually_exclusive_group()
     role_parse.add_argument("-p", "--profile", default=None,
                             help="Boto config profile to use when "
@@ -964,6 +992,9 @@ def get_parser():
 def main():
     parsers = get_parser()
     args = parsers['super'].parse_args()
+
+    # setup logging
+    setup_logging(args.log_level, args.log_file)
 
     # Check for assume role and set  session params
     session_params = get_session_params(args.profile, args.arn)
