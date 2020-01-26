@@ -648,6 +648,10 @@ def get_session(aws_access_key_id=None, aws_secret_access_key=None,
 get_session._cached_sessions = {}
 get_session._last_session = None
 
+def reset_sessions():
+    get_session._cached_sessions = {}
+    get_session._last_session = None
+
 
 def get_assumerole_credentials(arn):
     sts_client = boto3.client('sts')

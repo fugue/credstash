@@ -1,11 +1,10 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from credstash import get_session
+from credstash import get_session, reset_sessions
 
 class TestGetSession(unittest.TestCase):
     def setUp(self):
-        get_session._cached_sessions = {}
-        get_session._last_session = None
+        reset_sessions()
 
     @patch('boto3.Session')
     def test_get_session_initial_session(self, mock_session):
