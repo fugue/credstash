@@ -633,13 +633,20 @@ def createDdbTable(region=None, table="credential-store", tags=None, **kwargs):
 
 def get_session(aws_access_key_id=None, aws_secret_access_key=None,
                 aws_session_token=None, profile_name=None):
-    if get_session._cached_session is None:
-        get_session._cached_session = boto3.Session(aws_access_key_id=aws_access_key_id,
-                                                    aws_secret_access_key=aws_secret_access_key,
-                                                    aws_session_token=aws_session_token,
-                                                    profile_name=profile_name)
-    return get_session._cached_session
-get_session._cached_session = None
+    if aws_access_key_id is not None:
+        if aws_access_key_id not in get_session._cached_sessions:
+            get_session._cached_sessions[aws_access_key_id] = boto3.Session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                profile_name=profile_name
+            )
+        get_session._last_session = get_session._cached_sessions[aws_access_key_id]
+        return get_session._cached_sessions[aws_access_key_id]
+    else:
+        return get_session._last_session
+get_session._cached_sessions = {}
+get_session._last_session = None
 
 
 def get_assumerole_credentials(arn):
