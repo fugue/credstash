@@ -59,3 +59,10 @@ class TestGetSession(unittest.TestCase):
         self.assertEqual(get_session(), 'session1')
         self.assertEqual(get_session(aws_access_key_id='session2'), 'session2')
         self.assertEqual(get_session(), 'session2')
+
+    @patch('boto3.Session')
+    def test_get_session_no_params(self, mock_session):
+        mock_session.return_value = 'defaultsession'
+        self.assertEqual(get_session(), 'defaultsession')
+        self.assertEqual(get_session(), 'defaultsession')
+        mock_session.assert_called_once_with()
