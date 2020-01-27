@@ -530,7 +530,7 @@ def getSecretAction(args, region, kms_region,  **session_params):
                 output_args = {}
             sys.stdout.write(output_func(secrets, **output_args))
         else:
-            sys.stdout.write(getSecret(
+            sys.stdout.write(getSecretAndMetadata(
                 args.credential, 
                 version=args.version,
                 region=region, 
@@ -554,15 +554,15 @@ def getSecret(name, version="", region=None, table="credential-store", context=N
     '''
     fetch and decrypt the secret called `name`
     '''
-    secret, context = getSecretAndContext(name=name, version=version, region=region,
+    secret, context = getSecretAndMetadata(name=name, version=version, region=region,
                                           table=table, context=context, dynamodb=dynamodb,
-                                          kms=kms, **kwargs)
+                                          kms=kms, kms_region=kms_region, **kwargs)
     return secret
 
 
-def getSecretAndContext(name, version="", region=None,
+def getSecretAndMetadata(name, version="", region=None,
                         table="credential-store", context=None,
-                        dynamodb=None, kms=None, **kwargs):
+                        dynamodb=None, kms=None, kms_region=None, **kwargs):
     """
     fetch and decrypt the secret called `name`, and also return its version and
     comments.
