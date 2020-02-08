@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.16.2
+* New: Smarter cached session handling was added, with support for multiple sessions keyed by AKID
+* New: Configurable logging was added
+* New: @VincentHokie added the ability to pass a custom session to `getAllSecrets` and `listSecrets` 
+* Bugfix: An empty dict is returned from getall when there are no secrets, rather than an error
+* Bugfix: @aerostitch fixed Python 3.8 syntax warnings
+* New languages: Links to Erlang and Rust implementations of `credstash` have been added
+
 ## 1.16.1
 * Bugfix: @corrjo fixed a bug in the tagging feature 
 * Bugfix: @jamebus fixed a bug in `putall`
