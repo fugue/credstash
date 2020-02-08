@@ -377,6 +377,9 @@ def getAllSecrets(version="", region=None, table="credential-store",
     else:
         names = set(x["name"] for x in secrets)
 
+    if len(names) == 0:
+        return dict()
+
     pool = ThreadPool(min(len(names), THREAD_POOL_MAX_SIZE))
     results = pool.map(
         lambda credential: getSecret(credential, version, region, table, context, dynamodb, kms, **kwargs),
