@@ -8,6 +8,8 @@ setup(
     name=name,
     version=version,
     description='A utility for managing secrets in the cloud using AWS KMS and DynamoDB',
+    author="Alex Schoof, Mike Lin, et al.",
+    author_email="mike@fugue.co",
     license='Apache2',
     url="https://github.com/fugue/credstash",
     classifiers=[
