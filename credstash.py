@@ -530,15 +530,26 @@ def getSecretAction(args, region, kms_region,  **session_params):
                 output_args = {}
             sys.stdout.write(output_func(secrets, **output_args))
         else:
-            sys.stdout.write(getSecretAndMetadata(
-                args.credential, 
-                version=args.version,
-                region=region, 
-                kms_region=kms_region,
-                table=args.table,
-                context=args.context,
-                **session_params
-            ))
+            if args.include_metadata:
+                sys.stdout.write(repr(getSecretAndMetadata(
+                    args.credential,
+                    version=args.version,
+                    region=region,
+                    kms_region=kms_region,
+                    table=args.table,
+                    context=args.context,
+                    **session_params
+                )))
+            else:
+                sys.stdout.write(getSecret(
+                    args.credential,
+                    version=args.version,
+                    region=region,
+                    kms_region=kms_region,
+                    table=args.table,
+                    context=args.context,
+                    **session_params
+                ))
             if not args.noline:
                 sys.stdout.write("\n")
     except ItemNotFound as e:
@@ -977,6 +988,9 @@ def get_parser():
                                  ([] if NO_YAML else ["yaml"]),
                                  help="Output format. json(default) " +
                                  ("" if NO_YAML else "yaml ") + " csv or dotenv.")
+    parsers[action].add_argument("-m", "--include-metadata", action="store_true",
+                                 help="Return secret metadata (version and comment)"
+                                 "along with the secret itself.")
     parsers[action].set_defaults(action=action)
 
     action = 'getall'
