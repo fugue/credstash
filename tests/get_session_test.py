@@ -66,3 +66,13 @@ class TestGetSession(unittest.TestCase):
         self.assertEqual(get_session(), 'defaultsession')
         self.assertEqual(get_session(), 'defaultsession')
         mock_session.assert_called_once_with()
+        
+    @patch('boto3.Session')
+    def test_get_session_specify_profile(self, mock_session):
+        mock_session.return_value = 'session1'
+        get_session(
+            profile_name='profile1'
+        )
+        mock_session.assert_called_once_with(
+            profile_name='profile1'
+        )
