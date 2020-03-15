@@ -80,7 +80,8 @@ def setup_logging(level, log_file):
     logger.setLevel(level)
 
 # setup logging with default values when imported as a lib
-setup_logging(logging.WARNING, 'credstash.log')
+# don't set explicit logging 
+# setup_logging(logging.WARNING, 'credstash.log')
 
 class KeyService(object):
 
