@@ -26,6 +26,7 @@ import re
 import boto3
 import botocore.exceptions
 import logging
+import functools
 
 try:
     from StringIO import StringIO
@@ -257,6 +258,7 @@ def clean_fail(func):
     This sort of error is raised if you are targeting a region that
     isn't set up (see, `credstash setup`.
     '''
+    @functools.wraps(func)
     def func_wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -301,7 +303,7 @@ def listSecrets(region=None, table="credential-store", session=None, **kwargs):
 
 @clean_fail
 def putSecret(name, secret, version="", kms_key="alias/credstash",
-              region=None, table="credential-store", context=None,
+              region=None, kms_region=None, table="credential-store", context=None,
               digest=DEFAULT_DIGEST, comment="", kms=None, dynamodb=None, **kwargs):
     '''
     put a secret called `name` into the secret-store,
@@ -315,7 +317,7 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
         if dynamodb is None:
             dynamodb = session.resource('dynamodb', region_name=region)
         if kms is None:
-            kms = session.client('kms', region_name=region)
+            kms = session.client('kms', region_name=kms_region or region)
 
     key_service = KeyService(kms, kms_key, context)
     sealed = seal_aes_ctr_legacy(
@@ -338,7 +340,8 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
 
 def putSecretAutoversion(name, secret, kms_key="alias/credstash",
-                         region=None, table="credential-store", context=None,
+                         region=None, kms_region=None, 
+                         table="credential-store", context=None,
                          digest=DEFAULT_DIGEST, comment="", **kwargs):
     """
     This function put secrets to credstash using autoversioning
@@ -349,14 +352,14 @@ def putSecretAutoversion(name, secret, kms_key="alias/credstash",
     incremented_version = paddedInt(int(latest_version) + 1)
     try:
         putSecret(name=name, secret=secret, version=incremented_version,
-                  kms_key=kms_key, region=region, table=table,
-                  context=context, digest=digest, comment=comment, **kwargs)
+                  kms_key=kms_key, region=region, kms_region=kms_region,
+                  table=table, context=context, digest=digest, comment=comment, **kwargs)
         print("Secret '{0}' has been stored in table {1}".format(name, table))
     except KmsError as e:
         fatal(e)
 
 
-def getAllSecrets(version="", region=None, table="credential-store",
+def getAllSecrets(version="", region=None, kms_region=None, table="credential-store",
                   context=None, credential=None, session=None, **kwargs):
     '''
     fetch and decrypt all secrets
@@ -364,7 +367,7 @@ def getAllSecrets(version="", region=None, table="credential-store",
     if session is None:
         session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
-    kms = session.client('kms', region_name=region)
+    kms = session.client('kms', region_name=kms_region or region)
     secrets = listSecrets(region, table, session, **kwargs)
 
     # Only return the secrets that match the pattern in `credential`
@@ -382,8 +385,16 @@ def getAllSecrets(version="", region=None, table="credential-store",
 
     pool = ThreadPool(min(len(names), THREAD_POOL_MAX_SIZE))
     results = pool.map(
-        lambda credential: getSecret(credential, version, region, table, context, dynamodb, kms, **kwargs),
-        names)
+        lambda credential: getSecret(
+            credential, 
+            version=version, 
+            region=region, 
+            table=table, 
+            context=context, 
+            dynamodb=dynamodb, 
+            kms=kms, 
+            **kwargs
+        ), names)
     pool.close()
     pool.join()
     return dict(zip(names, results))
@@ -391,9 +402,10 @@ def getAllSecrets(version="", region=None, table="credential-store",
 
 
 @clean_fail
-def getAllAction(args, region, **session_params):
+def getAllAction(args, region: str, kms_region: str, **session_params):
     secrets = getAllSecrets(args.version,
                             region=region,
+                            kms_region=kms_region,
                             table=args.table,
                             context=args.context,
                             **session_params)
@@ -415,7 +427,7 @@ def getAllAction(args, region, **session_params):
 
 
 @clean_fail
-def putSecretAction(args, region, **session_params):
+def putSecretAction(args, region: str, kms_region: str, **session_params):
     if args.autoversion:
         latestVersion = getHighestVersion(args.credential,
                                           region,
@@ -432,10 +444,10 @@ def putSecretAction(args, region, **session_params):
         value = args.value
         if(args.prompt):
             value = getpass("{}: ".format(args.credential))
-        if putSecret(args.credential, value, version,
-                     kms_key=args.key, region=region, table=args.table,
-                     context=args.context, digest=args.digest, comment=args.comment,
-                     **session_params):
+        if putSecret(args.credential, value, version=version,
+                     kms_key=args.key, region=region, kms_region=kms_region, 
+                     table=args.table, context=args.context, digest=args.digest, 
+                     comment=args.comment, **session_params):
             print("{0} has been stored".format(args.credential))
     except KmsError as e:
         fatal(e)
@@ -452,7 +464,7 @@ def putSecretAction(args, region, **session_params):
 
 
 @clean_fail
-def putAllSecretsAction(args, region, **session_params):
+def putAllSecretsAction(args, region: str, kms_region: str, **session_params):
     credentials = json.loads(args.credentials)
 
     for credential, value in credentials.items():
@@ -461,13 +473,13 @@ def putAllSecretsAction(args, region, **session_params):
             args.value = value
             args.comment = None
             args.prompt = None
-            putSecretAction(args, region, **session_params)
+            putSecretAction(args, region, kms_region, **session_params)
         except SystemExit as e:
             pass
 
 
 @clean_fail
-def getSecretAction(args, region, **session_params):
+def getSecretAction(args, region: str, kms_region: str,  **session_params):
     try:
         if WILDCARD_CHAR in args.credential:
             names = expand_wildcard(args.credential,
@@ -476,14 +488,19 @@ def getSecretAction(args, region, **session_params):
                                      in listSecrets(region=region,
                                                     table=args.table,
                                                     **session_params)])
-            secrets = dict((name,
-                            getSecret(name,
-                                      args.version,
-                                      region=region,
-                                      table=args.table,
-                                      context=args.context,
-                                      **session_params))
-                          for name in names)
+            secrets = {
+                name:getSecret(
+                    name,
+                    version=args.version,
+                    region=region,
+                    kms_region=kms_region,
+                    table=args.table,
+                    context=args.context,
+                    **session_params
+                )
+                for name in names
+            }
+
             if args.format == "json":
                 output_func = json.dumps
                 output_args = {"sort_keys": True,
@@ -500,10 +517,15 @@ def getSecretAction(args, region, **session_params):
                 output_args = {}
             sys.stdout.write(output_func(secrets, **output_args))
         else:
-            sys.stdout.write(getSecret(args.credential, args.version,
-                                       region=region, table=args.table,
-                                       context=args.context,
-                                       **session_params))
+            sys.stdout.write(getSecret(
+                args.credential, 
+                version=args.version,
+                region=region, 
+                kms_region=kms_region,
+                table=args.table,
+                context=args.context,
+                **session_params
+            ))
             if not args.noline:
                 sys.stdout.write("\n")
     except ItemNotFound as e:
@@ -514,7 +536,7 @@ def getSecretAction(args, region, **session_params):
         fatal(e)
 
 @clean_fail
-def getSecret(name, version="", region=None,
+def getSecret(name, version="", region=None, kms_region=None,
               table="credential-store", context=None,
               dynamodb=None, kms=None, **kwargs):
     '''
@@ -529,7 +551,7 @@ def getSecret(name, version="", region=None,
         if dynamodb is None:
             dynamodb = session.resource('dynamodb', region_name=region)
         if kms is None:
-            kms = session.client('kms', region_name=region)
+            kms = session.client('kms', region_name=kms_region or region)
 
     secrets = dynamodb.Table(table)
 
@@ -580,6 +602,41 @@ def deleteSecrets(name, region=None, table="credential-store",
             print("Deleting %s -- version %s" %
                   (secret["name"], secret["version"]))
             secrets.delete_item(Key=secret)
+
+
+def setKmsRegion(args):
+    """
+    set the KMS region independent of the DDB table region
+    this value is stored in the file ~/.credstash
+    """
+    options = loadConfig()
+    options['kms-region'] = args.save_kms_region
+    writeConfig(options)
+    print(f"KMS region set to {args.save_kms_region}")
+
+
+def getKmsRegion():
+    options = loadConfig()
+    return options.get('kms-region')
+
+
+def loadConfig() -> dict:
+    config = os.path.expanduser("~/.credstash")
+    
+    try:
+        with open(config) as f:
+            options = json.load(f)
+    except FileNotFoundError:
+        options = {}
+
+    return options
+
+
+def writeConfig(options: dict):
+    config = os.path.expanduser("~/.credstash")
+
+    with open(config, 'w') as f:
+        json.dump(options, f)
 
 
 @clean_fail
@@ -825,6 +882,12 @@ def get_parser():
                                   "or if that is not set, the value in "
                                   "`~/.aws/config`. As a last resort, "
                                   "it will use " + DEFAULT_REGION)
+    parsers['super'].add_argument("--kms-region", type=str, default=None, 
+                            help="Region the credstash KMS key will be read from, "
+                            "independent of the region the DDB table is in. If not specified, "
+                            "the KMS region will follow the same resolution path as --region. "
+                            "To save the KMS region, use `credstash setup --save-kms-region KMS_REGION`. "
+                            "The value in this argument takes precedence any saved value.")
     parsers['super'].add_argument("-t", "--table", default=os.environ.get("CREDSTASH_DEFAULT_TABLE", "credential-store"),
                                   help="DynamoDB table to use for credential storage. "
                                   "If not specified, credstash "
@@ -841,6 +904,7 @@ def get_parser():
         "printed to stderr and stack traces are logged to file",
         default='credstash.log'
     )
+    
     role_parse = parsers['super'].add_mutually_exclusive_group()
     role_parse.add_argument("-p", "--profile", default=None,
                             help="Boto config profile to use when "
@@ -999,12 +1063,15 @@ def get_parser():
     action = 'setup'
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
+    parsers[action].add_argument("--save-kms-region", type=str, default=None, 
+                            help="Save the region the credstash KMS key will be read from, "
+                            "independent of the region the DDB table is in. This value is saved "
+                            "in ~/.credstash")                                            
     parsers[action].add_argument("--tags", type=key_value_pair,
                                   help="Tags to apply to the Dynamodb Table "
                                   "passed in as a space sparated list of Key=Value", nargs="*")
     parsers[action].set_defaults(action=action)
     return parsers
-
 
 def main():
     parsers = get_parser()
@@ -1025,6 +1092,9 @@ def main():
         if 'AWS_DEFAULT_REGION' not in os.environ:
             region = DEFAULT_REGION
 
+    # get KMS region (otherwise it is the same as region)
+    kms_region = args.kms_region or getKmsRegion() or region
+    
     if "action" in vars(args):
         if args.action == "delete":
             deleteSecrets(args.credential,
@@ -1039,18 +1109,20 @@ def main():
             list_credential_keys(region, args, **session_params)
             return
         if args.action == "put":
-            putSecretAction(args, region, **session_params)
+            putSecretAction(args, region, kms_region, **session_params)
             return
         if args.action == "putall":
-            putAllSecretsAction(args, region, **session_params)
+            putAllSecretsAction(args, region, kms_region, **session_params)
             return
         if args.action == "get":
-            getSecretAction(args, region, **session_params)
+            getSecretAction(args, region, kms_region, **session_params)
             return
         if args.action == "getall":
-            getAllAction(args, region, **session_params)
+            getAllAction(args, region, kms_region, **session_params)
             return
         if args.action == "setup":
+            if args.save_kms_region:
+                setKmsRegion(args)
             createDdbTable(region=region, table=args.table,
                            tags=args.tags, **session_params)
             return
