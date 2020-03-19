@@ -668,7 +668,7 @@ def get_session(aws_access_key_id=None, aws_secret_access_key=None,
         return get_session._cached_sessions[aws_access_key_id]
     else:
         if get_session._last_session is None:
-            get_session._last_session = boto3.Session()
+            get_session._last_session = boto3.Session(profile_name=profile_name)
         return get_session._last_session
 get_session._cached_sessions = {}
 get_session._last_session = None
