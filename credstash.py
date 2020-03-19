@@ -67,10 +67,16 @@ DEFAULT_REGION = "us-east-1"
 PAD_LEN = 19  # number of digits in sys.maxint
 WILDCARD_CHAR = "*"
 THREAD_POOL_MAX_SIZE = 64
+CLI_INVOCATION_TYPE = "CLI"
+LIB_INVOCATION_TYPE = "LIB"
 
 logger = logging.getLogger('credstash')
+invocation_type = LIB_INVOCATION_TYPE
 
 def setup_logging(level, log_file):
+    """setup logging when invoked as a command. logging is not setup when invoked as a lib,
+    so credstash can be used even if the application does not have local write access.
+    """
     if logger.hasHandlers():
         for h in logger.handlers:
             logger.removeHandler(h)
@@ -80,9 +86,6 @@ def setup_logging(level, log_file):
     logger.addHandler(handler) 
     logger.setLevel(level)
 
-# setup logging with default values when imported as a lib
-# don't set explicit logging 
-# setup_logging(logging.WARNING, 'credstash.log')
 
 class KeyService(object):
 
@@ -257,21 +260,30 @@ def clean_fail(func):
     A decorator to cleanly exit on a failed call to AWS.
     catch a `botocore.exceptions.ClientError` raised from an action.
     This sort of error is raised if you are targeting a region that
-    isn't set up (see, `credstash setup`.
+    isn't set up (see, `credstash setup`).
+
+    When invoked via the CLI, the wrapper function catches errors
+    and logs them to file instead of printing them.
+
+    When invoked as a library, the wrapper function is a passthrough,
+    so users can handle errors as they choose.
     '''
     @functools.wraps(func)
-    def func_wrapper(*args, **kwargs):
-        try:
+    def clean_error(*args, **kwargs):
+        if invocation_type == CLI_INVOCATION_TYPE:
+            try:
+                return func(*args, **kwargs)
+            except botocore.exceptions.ClientError as e:
+                print(str(e), file=sys.stderr)
+                logger.exception(e)
+                sys.exit(1)
+            except Exception as e:
+                print(str(e), file=sys.stderr)
+                logger.exception(e)
+                sys.exit(1)
+        else:
             return func(*args, **kwargs)
-        except botocore.exceptions.ClientError as e:
-            print(str(e), file=sys.stderr)
-            logger.exception(e)
-        except Exception as e:
-            print(str(e), file=sys.stderr)
-            logger.exception(e)
-        sys.exit(1)
-    return func_wrapper
-
+    return clean_error
 
 @clean_fail
 def listSecrets(region=None, table="credential-store", session=None, **kwargs):
@@ -1077,6 +1089,8 @@ def get_parser():
 def main():
     parsers = get_parser()
     args = parsers['super'].parse_args()
+    global invocation_type
+    invocation_type = CLI_INVOCATION_TYPE
 
     # setup logging
     setup_logging(args.log_level, args.log_file)
