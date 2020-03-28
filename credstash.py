@@ -414,7 +414,7 @@ def getAllSecrets(version="", region=None, kms_region=None, table="credential-st
 
 
 @clean_fail
-def getAllAction(args, region: str, kms_region: str, **session_params):
+def getAllAction(args, region, kms_region, **session_params):
     secrets = getAllSecrets(args.version,
                             region=region,
                             kms_region=kms_region,
@@ -439,7 +439,7 @@ def getAllAction(args, region: str, kms_region: str, **session_params):
 
 
 @clean_fail
-def putSecretAction(args, region: str, kms_region: str, **session_params):
+def putSecretAction(args, region, kms_region, **session_params):
     if args.autoversion:
         latestVersion = getHighestVersion(args.credential,
                                           region,
@@ -476,7 +476,7 @@ def putSecretAction(args, region: str, kms_region: str, **session_params):
 
 
 @clean_fail
-def putAllSecretsAction(args, region: str, kms_region: str, **session_params):
+def putAllSecretsAction(args, region, kms_region, **session_params):
     credentials = json.loads(args.credentials)
 
     for credential, value in credentials.items():
@@ -491,7 +491,7 @@ def putAllSecretsAction(args, region: str, kms_region: str, **session_params):
 
 
 @clean_fail
-def getSecretAction(args, region: str, kms_region: str,  **session_params):
+def getSecretAction(args, region, kms_region,  **session_params):
     try:
         if WILDCARD_CHAR in args.credential:
             names = expand_wildcard(args.credential,
@@ -624,7 +624,7 @@ def setKmsRegion(args):
     options = loadConfig()
     options['kms-region'] = args.save_kms_region
     writeConfig(options)
-    print(f"KMS region set to {args.save_kms_region}")
+    print("KMS region set to {}".format(args.save_kms_region))
 
 
 def getKmsRegion():
@@ -632,7 +632,7 @@ def getKmsRegion():
     return options.get('kms-region')
 
 
-def loadConfig() -> dict:
+def loadConfig():
     config = os.path.expanduser("~/.credstash")
     
     try:
@@ -644,7 +644,7 @@ def loadConfig() -> dict:
     return options
 
 
-def writeConfig(options: dict):
+def writeConfig(options):
     config = os.path.expanduser("~/.credstash")
 
     with open(config, 'w') as f:
