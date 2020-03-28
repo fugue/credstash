@@ -77,9 +77,8 @@ def setup_logging(level, log_file):
     """setup logging when invoked as a command. logging is not setup when invoked as a lib,
     so credstash can be used even if the application does not have local write access.
     """
-    if logger.hasHandlers():
-        for h in logger.handlers:
-            logger.removeHandler(h)
+    for h in logger.handlers:
+        logger.removeHandler(h)
     handler = logging.FileHandler(log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     handler.setFormatter(formatter)
