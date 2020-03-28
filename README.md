@@ -129,9 +129,57 @@ See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standar
 
 ## Usage
 ```
-usage: credstash [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] {delete,get,getall,list,put,setup} ...
+usage: credstash [-h] [-r REGION] [--kms-region KMS_REGION] [-t TABLE]
+                 [--log-level LOG_LEVEL] [--log-file LOG_FILE]
+                 [-p PROFILE | -n ARN]
+                 {delete,get,getall,keys,list,put,putall,setup} ...
 
 A credential/secret storage system
+
+positional arguments:
+  {delete,get,getall,keys,list,put,putall,setup}
+                        Try commands like "/Users/Mike/.pyenv/versions/3.6.5/e
+                        nvs/rm/bin/credstash get -h" or "/Users/Mike/.pyenv/ve
+                        rsions/3.6.5/envs/rm/bin/credstash put --help" to get
+                        each sub command's options
+    delete              Delete a credential from the store
+    get                 Get a credential from the store
+    getall              Get all credentials from the store
+    keys                List all keys in the store
+    list                list credentials and their versions
+    put                 Put a credential into the store
+    putall              Put credentials from json into the store
+    setup               setup the credential store
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r REGION, --region REGION
+                        the AWS region in which to operate. If a region is not
+                        specified, credstash will use the value of the
+                        AWS_DEFAULT_REGION env variable, or if that is not
+                        set, the value in `~/.aws/config`. As a last resort,
+                        it will use us-east-1
+  --kms-region KMS_REGION
+                        Region the credstash KMS key will be read from,
+                        independent of the region the DDB table is in. If not
+                        specified, the KMS region will follow the same
+                        resolution path as --region. To save the KMS region,
+                        use `credstash setup --save-kms-region KMS_REGION`.
+                        The value in this argument takes precedence any saved
+                        value.
+  -t TABLE, --table TABLE
+                        DynamoDB table to use for credential storage. If not
+                        specified, credstash will use the value of the
+                        CREDSTASH_DEFAULT_TABLE env variable, or if that is
+                        not set, the value `credential-store` will be used
+  --log-level LOG_LEVEL
+                        Set the log level, default WARNING
+  --log-file LOG_FILE   Set the log output file, default credstash.log. Errors
+                        are printed to stderr and stack traces are logged to
+                        file
+  -p PROFILE, --profile PROFILE
+                        Boto config profile to use when connecting to AWS
+  -n ARN, --arn ARN     AWS IAM ARN for AssumeRole
 
 delete
     usage: credstash delete [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] credential
@@ -140,8 +188,8 @@ delete
       credential  the name of the credential to delete
 
 get
-    usage: credstash get [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-n] [-v VERSION]
-                         credential [context [context ...]]
+    usage: credstash get [-h] [-n] [-v VERSION] [-f {json,csv,dotenv,yaml}]
+                        credential [context [context ...]]
 
     positional arguments:
       credential            the name of the credential to get. Using the wildcard
@@ -151,11 +199,14 @@ get
                             credential in the form of "key=value"
 
     optional arguments:
+      -h, --help            show this help message and exit
       -n, --noline          Don't append newline to returned value (useful in
                             scripts or with binary files)
       -v VERSION, --version VERSION
                             Get a specific version of the credential (defaults to
                             the latest version)
+      -f {json,csv,dotenv,yaml}, --format {json,csv,dotenv,yaml}
+                            Output format. json(default) yaml csv or dotenv.
 
 getall
     usage: credstash getall [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-v VERSION] [-f {json,yaml,csv,dotenv}]
@@ -177,22 +228,27 @@ list
     usage: credstash list [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
 
 put
-    usage: credstash put [-h] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN] [-k KEY] [-v VERSION]
-                         credential value [context [context ...]]
+    usage: credstash put [-h] [-k KEY] [-c COMMENT] [-v VERSION] [-a]
+                        [-d {SHA,SHA224,SHA256,SHA384,SHA512,MD5}] [-P]
+                        credential [value] [context [context ...]]
 
-positional arguments:
-  credential            the name of the credential to store
-  value                 the value of the credential to store or, if beginning
-                        with the "@" character, the filename of the file
-                        containing the value, or pass "-" to read the value
-                        from stdin
-  context               encryption context key/value pairs associated with the
-                        credential in the form of "key=value"
+    positional arguments:
+      credential            the name of the credential to store
+      value                 the value of the credential to store or, if beginning
+                            with the "@" character, the filename of the file
+                            containing the value, or pass "-" to read the value
+                            from stdin
+      context               encryption context key/value pairs associated with the
+                            credential in the form of "key=value"
 
     optional arguments:
+      -h, --help            show this help message and exit
       -k KEY, --key KEY     the KMS key-id of the master key to use. See the
                             README for more information. Defaults to
                             alias/credstash
+      -c COMMENT, --comment COMMENT
+                            Include reference information or a comment about value
+                            to be stored.
       -v VERSION, --version VERSION
                             Put a specific version of the credential (update the
                             credential; defaults to version `1`).
@@ -200,31 +256,25 @@ positional arguments:
                             to be stored. This option causes the `-v` flag to be
                             ignored. (This option will fail if the currently
                             stored version is not numeric.)
-      -d {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}, --digest {SHA,MD5,RIPEMD,SHA384,SHA224,SHA256,SHA512,WHIRLPOOL}
+      -d {SHA,SHA224,SHA256,SHA384,SHA512,MD5}, --digest {SHA,SHA224,SHA256,SHA384,SHA512,MD5}
                             the hashing algorithm used to to encrypt the data.
                             Defaults to SHA256
+      -P, --prompt          Prompt for secret
 
 
 setup
-    usage: credstash setup [-h] [--tags [TAGS [TAGS ...]]] [-r REGION] [-t TABLE] [-p PROFILE | -n ARN]
+    usage: credstash setup [-h] [--save-kms-region SAVE_KMS_REGION]
+                          [--tags [TAGS [TAGS ...]]]
 
-optional arguments:
-  -r REGION, --region REGION
-	                    the AWS region in which to operate. If a region is not
-	                    specified, credstash will use the value of the
-	                    AWS_DEFAULT_REGION env variable, or if that is not
-	                    set, the value in `~/.aws/config`. As a last resort,
-	                    it will use us-east-1
-  --log-level LOG_LEVEL
-                        Set the log level, default WARNING
-  --log-file LOG_FILE    Set the log output file, default credstash.log. Errors
-                        are printed to stderr and stack traces are logged to
-                        file                      
-  -t TABLE, --table TABLE
-	                    DynamoDB table to use for credential storage
-  -p PROFILE, --profile PROFILE
-	                    Boto config profile to use when connecting to AWS
-  -n ARN, --arn ARN     AWS IAM ARN for AssumeRole
+    optional arguments:
+      -h, --help            show this help message and exit
+      --save-kms-region SAVE_KMS_REGION
+                            Save the region the credstash KMS key will be read
+                            from, independent of the region the DDB table is in.
+                            This value is saved in ~/.credstash
+      --tags [TAGS [TAGS ...]]
+                            Tags to apply to the Dynamodb Table passed in as a
+                            space sparated list of Key=Value
 ```
 ## IAM Policies
 
