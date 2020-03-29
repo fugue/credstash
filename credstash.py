@@ -1108,7 +1108,8 @@ def main():
     else:
         # grab region from session in case it was set
         # through session_params dict
-        region = session.region_name
+        if region is None:
+            region = session.region_name
 
     # get KMS region (otherwise it is the same as region)
     kms_region = args.kms_region or getKmsRegion() or region
