@@ -1105,10 +1105,13 @@ def main():
     except botocore.exceptions.NoRegionError:
         if 'AWS_DEFAULT_REGION' not in os.environ:
             region = DEFAULT_REGION
+    else:
+        # grab region from session in case it was set
+        # through session_params dict
+        region = session.region_name
 
     # get KMS region (otherwise it is the same as region)
     kms_region = args.kms_region or getKmsRegion() or region
-    
     if "action" in vars(args):
         if args.action == "delete":
             deleteSecrets(args.credential,
