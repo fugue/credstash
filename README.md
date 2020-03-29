@@ -84,13 +84,15 @@ credstash uses the following AWS services:
 ### Setting up KMS
 `credstash` will not currently set up your KMS master key. To create a KMS master key,
 
-1. Go to the AWS console
-2. Go to the IAM console/tab
-3. Click "Encryption Keys" in the left
-4. Click "Create Key". For alias, put "credstash". If you want to use a different name, be sure to pass it to credstash with the `-k` flag
-5. Decide what IAM principals you want to be able to manage the key
-6. On the "Key Usage Permissions" screen, pick the IAM users/roles that will be using credstash (you can change your mind later)
-7. Done!
+1. Go to the AWS Console and make sure you are in `us-east-1`. If you want to use a key in a different region, you can pass it in using the `--kms-region` argument.
+2. Go to the KMS Console
+3. Click "Customer managed keys" in the left sidebar
+4. Click "Next" to configure a Symmetric key
+5. For alias, put "credstash" and click "Next". If you want to use a different name, be sure to pass it to credstash with the `-k` flag. 
+6. Decide what IAM principals, if any, you want to be able to manage the key. Click "Next".
+6. On the "Key Usage Permissions" screen, pick the IAM users/roles that will be using credstash (you can change your mind later). Click "Next".
+7. Review the key policy and click "Finish".
+8. Done!
 
 ### Setting up credstash
 The easiest thing to do is to just run `pip install credstash`. That will download and install credstash and its dependencies (boto and PyCypto). You can also install credstash with optional YAML support by running `pip install credstash[YAML]` instead.

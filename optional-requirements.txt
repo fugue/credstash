@@ -3,4 +3,6 @@
 #      $ pip install -r optional-requirements.txt
 
 # In order to output `getall` in YAML format you need PyYAML
+# pytest is needed to run the tests in test_credstash_lib.py
 pyyaml>=4.2b1
+pytest>=5.4.1
