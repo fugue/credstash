@@ -914,7 +914,7 @@ def get_parser():
     parsers['super'].add_argument("--log-file",
         help="Set the log output file, default credstash.log. Errors are "
         "printed to stderr and stack traces are logged to file",
-        default='credstash.log'
+        default='/tmp/credstash.log'
     )
     
     role_parse = parsers['super'].add_mutually_exclusive_group()
