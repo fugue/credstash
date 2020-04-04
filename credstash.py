@@ -638,7 +638,7 @@ def loadConfig():
     try:
         with open(config) as f:
             options = json.load(f)
-    except FileNotFoundError:
+    except IOError:
         options = {}
 
     return options
