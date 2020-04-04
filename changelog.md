@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.17.0
+* New: add `--kms-region` argument to set the KMS region independently from the DDB region. This allows the use of DDB tables in multiple regions with the same KMS key, for example, with DDB Global Tables
+* New: `get_session()` now supports passing in only the `profile_name` without AKIDs or SAKs
+* Bugfix: #273 #274 Disable logging when `credstash` is imported as a library. This allows `credstash` to be used in contexts where writing to the local disk is not allowed
+* Bugfix: #269 Remove incompatible Python 3 code to ensure compatibility with Python 2
+* Bugfix: #276 Do not catch errors when `credstash` is imported as a library
+
 ## 1.16.2
 * New: Smarter cached session handling was added, with support for multiple sessions keyed by AKID
 * New: Configurable logging was added
