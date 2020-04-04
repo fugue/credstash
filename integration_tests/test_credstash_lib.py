@@ -2,6 +2,7 @@
 # run using `pytest integration_tests/test_credstash_lib.py`
 import credstash
 import pytest
+import botocore.exceptions
 
 @pytest.yield_fixture
 def secret():
@@ -27,15 +28,14 @@ def test_getSecret(secret):
     assert s == secret['value']
 
 
-def test_deleteSecret(secret):
-    secrets = credstash.listSecrets()
-    del secret['value']
-    assert secrets == [secret]
-
-    credstash.deleteSecrets(secret['name'])
-    secrets = credstash.listSecrets()
-    assert secrets == []
-
+def test_getSecret_wrong_region(secret):
+    try:
+        credstash.getSecret(secret['name'], region='us-west-2')
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            assert True
+    else:
+        assert False, "expected botocore ResourceNotFoundException"
 
 def test_getSecret_nonexistent():
     try:
@@ -44,3 +44,23 @@ def test_getSecret_nonexistent():
         assert True
     else:
         assert False, "expected credstash.ItemNotFound error"
+
+
+def test_getAllSecrets(secret):
+    s = credstash.getAllSecrets()
+    assert s == {secret['name']:secret['value']}
+
+
+def test_getAllSecrets_no_secrets():
+    s = credstash.getAllSecrets()
+    assert s == dict()
+
+
+def test_deleteSecret(secret):
+    secrets = credstash.listSecrets()
+    del secret['value']
+    assert secrets == [secret]
+
+    credstash.deleteSecrets(secret['name'])
+    secrets = credstash.listSecrets()
+    assert secrets == []        
