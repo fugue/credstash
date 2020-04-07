@@ -1,14 +1,14 @@
 # CredStash
 
 ## Quick Installation
-0. (Linux only) Install dependencies 
+0. (Linux only) Install dependencies
 1. `pip install credstash`
 2. Set up a key called credstash in KMS (found in the IAM console)
 3. Make sure you have AWS creds in a place that boto/botocore can read them
 4. `credstash setup`
 
 ### Linux install-time dependencies
-Credstash recently moved from PyCrypto to `cryptography`. `cryptography` uses pre-built binary wheels on OSX and Windows, but does not on Linux. That means that you need to install some dependencies if you want to run credstash on linux. 
+Credstash recently moved from PyCrypto to `cryptography`. `cryptography` uses pre-built binary wheels on OSX and Windows, but does not on Linux. That means that you need to install some dependencies if you want to run credstash on linux.
 
 For Debian and Ubuntu, the following command will ensure that the required dependencies are installed:
 ```
@@ -31,7 +31,7 @@ Some organizations build complete credential-management systems, but for most of
 
 CredStash is a very simple, easy to use credential management and distribution system that uses AWS Key Management Service (KMS) for key wrapping and master-key storage, and DynamoDB for credential storage and sharing.
 
-## Compatibility with Other Languages 
+## Compatibility with Other Languages
 A number of great projects exist to provide credstash compatability with other languages. Here are the ones that we know about (feel free to open a pull request if you know of another):
 
 - https://github.com/jessecoyle/jcredstash (Java)
@@ -88,7 +88,7 @@ credstash uses the following AWS services:
 2. Go to the KMS Console
 3. Click "Customer managed keys" in the left sidebar
 4. Click "Next" to configure a Symmetric key
-5. For alias, put "credstash" and click "Next". If you want to use a different name, be sure to pass it to credstash with the `-k` flag. 
+5. For alias, put "credstash" and click "Next". If you want to use a different name, be sure to pass it to credstash with the `-k` flag or the `CREDSTASH_KMS_KEY_ID` environment variable.
 6. Decide what IAM principals, if any, you want to be able to manage the key. Click "Next".
 6. On the "Key Usage Permissions" screen, pick the IAM users/roles that will be using credstash (you can change your mind later). Click "Next".
 7. Review the key policy and click "Finish".
@@ -246,8 +246,9 @@ put
     optional arguments:
       -h, --help            show this help message and exit
       -k KEY, --key KEY     the KMS key-id of the master key to use. See the
-                            README for more information. Defaults to
-                            alias/credstash
+                            README for more information.  If not specified
+                            credstash will use the `CREDSTASH_KMS_KEY_ID`
+                            environment variable or default of alias/credstash
       -c COMMENT, --comment COMMENT
                             Include reference information or a comment about value
                             to be stored.
@@ -372,7 +373,7 @@ python -m unittest discover -v tests "*.py"
 
 ### Running the integration tests using BATS
 1. The integration tests require a working install of credstash. I recommend not using your primary development/production install.
-2. Download and install BATS: https://github.com/sstephenson/bats 
+2. Download and install BATS: https://github.com/sstephenson/bats
 3. Run the tests: `bats integration_tests/`
 
 New integration test PRs are welcome!
