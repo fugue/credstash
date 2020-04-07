@@ -82,7 +82,7 @@ def setup_logging(level, log_file):
     handler = logging.FileHandler(log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     handler.setFormatter(formatter)
-    logger.addHandler(handler) 
+    logger.addHandler(handler)
     logger.setLevel(level)
 
 
@@ -352,7 +352,7 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
 
 def putSecretAutoversion(name, secret, kms_key="alias/credstash",
-                         region=None, kms_region=None, 
+                         region=None, kms_region=None,
                          table="credential-store", context=None,
                          digest=DEFAULT_DIGEST, comment="", **kwargs):
     """
@@ -398,13 +398,13 @@ def getAllSecrets(version="", region=None, kms_region=None, table="credential-st
     pool = ThreadPool(min(len(names), THREAD_POOL_MAX_SIZE))
     results = pool.map(
         lambda credential: getSecret(
-            credential, 
-            version=version, 
-            region=region, 
-            table=table, 
-            context=context, 
-            dynamodb=dynamodb, 
-            kms=kms, 
+            credential,
+            version=version,
+            region=region,
+            table=table,
+            context=context,
+            dynamodb=dynamodb,
+            kms=kms,
             **kwargs
         ), names)
     pool.close()
@@ -457,8 +457,8 @@ def putSecretAction(args, region, kms_region, **session_params):
         if(args.prompt):
             value = getpass("{}: ".format(args.credential))
         if putSecret(args.credential, value, version=version,
-                     kms_key=args.key, region=region, kms_region=kms_region, 
-                     table=args.table, context=args.context, digest=args.digest, 
+                     kms_key=args.key, region=region, kms_region=kms_region,
+                     table=args.table, context=args.context, digest=args.digest,
                      comment=args.comment, **session_params):
             print("{0} has been stored".format(args.credential))
     except KmsError as e:
@@ -530,9 +530,9 @@ def getSecretAction(args, region, kms_region,  **session_params):
             sys.stdout.write(output_func(secrets, **output_args))
         else:
             sys.stdout.write(getSecret(
-                args.credential, 
+                args.credential,
                 version=args.version,
-                region=region, 
+                region=region,
                 kms_region=kms_region,
                 table=args.table,
                 context=args.context,
@@ -634,7 +634,7 @@ def getKmsRegion():
 
 def loadConfig():
     config = os.path.expanduser("~/.credstash")
-    
+
     try:
         with open(config) as f:
             options = json.load(f)
@@ -894,7 +894,7 @@ def get_parser():
                                   "or if that is not set, the value in "
                                   "`~/.aws/config`. As a last resort, "
                                   "it will use " + DEFAULT_REGION)
-    parsers['super'].add_argument("--kms-region", type=str, default=None, 
+    parsers['super'].add_argument("--kms-region", type=str, default=None,
                             help="Region the credstash KMS key will be read from, "
                             "independent of the region the DDB table is in. If not specified, "
                             "the KMS region will follow the same resolution path as --region. "
@@ -907,7 +907,7 @@ def get_parser():
                                   "CREDSTASH_DEFAULT_TABLE env variable, "
                                   "or if that is not set, the value "
                                   "`credential-store` will be used")
-    parsers['super'].add_argument("--log-level", 
+    parsers['super'].add_argument("--log-level",
         help="Set the log level, default WARNING",
         default='WARNING'
     )
@@ -916,7 +916,7 @@ def get_parser():
         "printed to stderr and stack traces are logged to file",
         default='credstash.log'
     )
-    
+
     role_parse = parsers['super'].add_mutually_exclusive_group()
     role_parse.add_argument("-p", "--profile", default=None,
                             help="Boto config profile to use when "
@@ -1010,10 +1010,13 @@ def get_parser():
                                  help="encryption context key/value pairs "
                                  "associated with the credential in the form "
                                  "of \"key=value\"")
-    parsers[action].add_argument("-k", "--key", default="alias/credstash",
-                                 help="the KMS key-id of the master key "
-                                 "to use. See the README for more "
-                                 "information. Defaults to alias/credstash")
+    parsers[action].add_argument("-k", "--key",
+                                 default=os.environ.get("CREDSTASH_KMS_KEY_ID", "alias/credstash"),
+                                 help="the KMS key-id of the master key to use. "
+                                 "See the README for more information.  If not "
+                                 "specified credstash will use the "
+                                 "CREDSTASH_KMS_KEY_ID environment variable or "
+                                 "default of alias/credstash")
     parsers[action].add_argument("-c", "--comment", type=str,
                                  help="Include reference information or a comment about "
                                  "value to be stored.")
@@ -1050,10 +1053,13 @@ def get_parser():
                                  help="encryption context key/value pairs "
                                       "associated with the credential in the form "
                                       "of \"key=value\"")
-    parsers[action].add_argument("-k", "--key", default="alias/credstash",
-                                 help="the KMS key-id of the master key "
-                                      "to use. See the README for more "
-                                      "information. Defaults to alias/credstash")
+    parsers[action].add_argument("-k", "--key",
+                                 default=os.environ.get("CREDSTASH_KMS_KEY_ID", "alias/credstash"),
+                                 help="the KMS key-id of the master key to use. "
+                                 "See the README for more information.  If not "
+                                 "specified credstash will use the "
+                                 "CREDSTASH_KMS_KEY_ID environment variable or "
+                                 "default of alias/credstash")
     parsers[action].add_argument("-v", "--version", default="",
                                  help="Put a specific version of the "
                                       "credential (update the credential; "
@@ -1075,10 +1081,10 @@ def get_parser():
     action = 'setup'
     parsers[action] = subparsers.add_parser(action,
                                             help='setup the credential store')
-    parsers[action].add_argument("--save-kms-region", type=str, default=None, 
+    parsers[action].add_argument("--save-kms-region", type=str, default=None,
                             help="Save the region the credstash KMS key will be read from, "
                             "independent of the region the DDB table is in. This value is saved "
-                            "in ~/.credstash")                                            
+                            "in ~/.credstash")
     parsers[action].add_argument("--tags", type=key_value_pair,
                                   help="Tags to apply to the Dynamodb Table "
                                   "passed in as a space sparated list of Key=Value", nargs="*")
@@ -1108,7 +1114,7 @@ def main():
 
     # get KMS region (otherwise it is the same as region)
     kms_region = args.kms_region or getKmsRegion() or region
-    
+
     if "action" in vars(args):
         if args.action == "delete":
             deleteSecrets(args.credential,
