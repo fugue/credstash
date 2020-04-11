@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.17.1
+* Bugfix: #291 Move `kms_region` optional parameter to end of parameter list to preserve existing functionality when parameters are used positionally
+
 ## 1.17.0
 * New: add `--kms-region` argument to set the KMS region independently from the DDB region. This allows the use of DDB tables in multiple regions with the same KMS key, for example, with DDB Global Tables
 * New: `get_session()` now supports passing in only the `profile_name` without AKIDs or SAKs (@eisjcormier)
