@@ -315,8 +315,9 @@ def listSecrets(region=None, table="credential-store", session=None, **kwargs):
 
 @clean_fail
 def putSecret(name, secret, version="", kms_key="alias/credstash",
-              region=None, kms_region=None, table="credential-store", context=None,
-              digest=DEFAULT_DIGEST, comment="", kms=None, dynamodb=None, **kwargs):
+              region=None, table="credential-store", context=None,
+              digest=DEFAULT_DIGEST, comment="", kms=None, dynamodb=None, 
+              kms_region=None, **kwargs):
     '''
     put a secret called `name` into the secret-store,
     protected by the key kms_key
@@ -352,9 +353,8 @@ def putSecret(name, secret, version="", kms_key="alias/credstash",
 
 
 def putSecretAutoversion(name, secret, kms_key="alias/credstash",
-                         region=None, kms_region=None, 
-                         table="credential-store", context=None,
-                         digest=DEFAULT_DIGEST, comment="", **kwargs):
+                         region=None, table="credential-store", context=None,
+                         digest=DEFAULT_DIGEST, comment="", kms_region=None, **kwargs):
     """
     This function put secrets to credstash using autoversioning
     :return:
@@ -371,8 +371,9 @@ def putSecretAutoversion(name, secret, kms_key="alias/credstash",
         fatal(e)
 
 
-def getAllSecrets(version="", region=None, kms_region=None, table="credential-store",
-                  context=None, credential=None, session=None, **kwargs):
+def getAllSecrets(version="", region=None, table="credential-store",
+                  context=None, credential=None, session=None, 
+                  kms_region=None, **kwargs):
     '''
     fetch and decrypt all secrets
     '''
@@ -548,9 +549,8 @@ def getSecretAction(args, region, kms_region,  **session_params):
         fatal(e)
 
 @clean_fail
-def getSecret(name, version="", region=None, kms_region=None,
-              table="credential-store", context=None,
-              dynamodb=None, kms=None, **kwargs):
+def getSecret(name, version="", region=None, table="credential-store", context=None,
+              dynamodb=None, kms=None, kms_region=None, **kwargs):
     '''
     fetch and decrypt the secret called `name`
     '''
