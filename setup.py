@@ -3,6 +3,7 @@ from setuptools import setup
 
 name = 'credstash'
 version = '1.17.1'
+tests_requires=['pytest>=5.4.1']
 
 setup(
     name=name,
@@ -24,14 +25,13 @@ setup(
         'boto3>=1.1.1',
     ],
     extras_require={
-        'YAML': ['PyYAML>=3.10']
+        'YAML': ['PyYAML>=3.10'],
+        'test': tests_requires,
     },
     entry_points={
         'console_scripts': [
             'credstash = credstash:main'
         ]
     },
-    setup_requires=[
-        'pytest>=5.4.1'
-    ],
+    tests_requires=tests_requires,
 )
