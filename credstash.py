@@ -360,7 +360,7 @@ def putSecretAutoversion(name, secret, kms_key="alias/credstash",
     :return:
     """
 
-    latest_version = getHighestVersion(name=name, table=table)
+    latest_version = getHighestVersion(name=name, table=table, region=region)
     incremented_version = paddedInt(int(latest_version) + 1)
     try:
         putSecret(name=name, secret=secret, version=incremented_version,
