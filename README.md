@@ -34,7 +34,7 @@ CredStash is a very simple, easy to use credential management and distribution s
 ## Compatibility with Other Languages 
 A number of great projects exist to provide credstash compatability with other languages. Here are the ones that we know about (feel free to open a pull request if you know of another):
 
-- https://github.com/jessecoyle/jcredstash (Java)
+- https://github.com/klamouri/jcredstash (Java)
 - https://github.com/adorechic/rcredstash (Ruby)
 - https://github.com/kdrakon/scala-credstash (Scala)
 - https://github.com/gmo/credstash-php (PHP)
