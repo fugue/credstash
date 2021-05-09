@@ -911,7 +911,7 @@ def get_parser():
                                   "CREDSTASH_DEFAULT_TABLE env variable, "
                                   "or if that is not set, the value "
                                   "`credential-store` will be used")
-    parsers['super'].add_argument("--endpoint_url", default=os.environ.get("DYNAMODB_ENDPOINT_URL", None),
+    parsers['super'].add_argument("--endpoint-url", default=os.environ.get("DYNAMODB_ENDPOINT_URL", None),
                                   help="DynamoDB endpoint to use for credential storage. "
                                   "If not specified, credstash "
                                   "will use the value of the "
@@ -1112,7 +1112,7 @@ def main():
     # test for region
     try:
         region = args.region
-        endpoint_url = args.endpoint_url
+        endpoint_url = args.endpoint-url
         session = get_session(**session_params)
         session.resource('dynamodb', region_name=region, endpoint_url=endpoint_url)
     except botocore.exceptions.NoRegionError:

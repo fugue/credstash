@@ -132,7 +132,7 @@ See https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standar
 ## Usage
 ```
 usage: credstash [-h] [-r REGION] [--kms-region KMS_REGION] [-t TABLE]
-                 [--log-level LOG_LEVEL] [--log-file LOG_FILE]
+                 [--log-level LOG_LEVEL] [--log-file LOG_FILE] [--endpoint-url DYNAMODB_ENDPOINT_URL]
                  [-p PROFILE | -n ARN]
                  {delete,get,getall,keys,list,put,putall,setup} ...
 
@@ -174,6 +174,9 @@ optional arguments:
                         specified, credstash will use the value of the
                         CREDSTASH_DEFAULT_TABLE env variable, or if that is
                         not set, the value `credential-store` will be used
+  --endpoint-url        
+                        Endpoint URL for the local dynamodb setup using
+                        localstack.
   --log-level LOG_LEVEL
                         Set the log level, default WARNING
   --log-file LOG_FILE   Set the log output file, default credstash.log. Errors
