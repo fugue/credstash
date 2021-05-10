@@ -880,6 +880,32 @@ def get_session_params(profile, arn):
     return params
 
 
+@clean_fail
+def template_lookup(args, region, **session_params):
+    '''convert credstash secrets in template file for pattern "{{ secrect_key_name }}"
+    '''
+
+    file = args.file
+    with open(file, 'r+') as f:
+        data = f.read()
+        pattern = re.compile(r'({{ ([^}]+) }})')
+        match = pattern.findall(data)
+
+        for source, key in match:
+            try:
+                secret = getSecret(key)
+            except Exception:
+                print("Can't get the secret %s, did you set it?" % key)
+                sys.exit(1)
+
+            data = data.replace(source, secret)
+
+        f.seek(0)
+        f.truncate()
+        f.write(data)
+        f.close()
+
+
 def get_parser():
     """get the parsers dict"""
     parsers = {}
@@ -1083,6 +1109,12 @@ def get_parser():
                                   help="Tags to apply to the Dynamodb Table "
                                   "passed in as a space sparated list of Key=Value", nargs="*")
     parsers[action].set_defaults(action=action)
+    action = 'template'
+    parsers[action] = subparsers.add_parser(action,
+                                            help='convert secrets in tempalte')
+    parsers[action].add_argument("file", type=str,
+                                 help="name of template file.")
+    parsers[action].set_defaults(action=action)
     return parsers
 
 def main():
@@ -1139,6 +1171,9 @@ def main():
                 setKmsRegion(args)
             createDdbTable(region=region, table=args.table,
                            tags=args.tags, **session_params)
+            return
+        if args.action == "template":
+            template_lookup(args, region, **session_params)
             return
     else:
         parsers['super'].print_help()
