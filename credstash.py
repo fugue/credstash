@@ -591,7 +591,7 @@ def getSecret(name, version="", region=None, table="credential-store", context=N
 
 
 @clean_fail
-def deleteSecrets(name, region=None, table="credential-store",
+def deleteSecrets(name, region=None, table="credential-store", show_stdout=True,
                   **kwargs):
     session = get_session(**kwargs)
     dynamodb = session.resource('dynamodb', region_name=region)
@@ -611,8 +611,9 @@ def deleteSecrets(name, region=None, table="credential-store",
         response = secrets.query(**params)
 
         for secret in response["Items"]:
-            print("Deleting %s -- version %s" %
-                  (secret["name"], secret["version"]))
+            if show_stdout:
+                print("Deleting %s -- version %s" %
+                      (secret["name"], secret["version"]))
             secrets.delete_item(Key=secret)
 
 
