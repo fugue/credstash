@@ -530,15 +530,26 @@ def getSecretAction(args, region, kms_region,  **session_params):
                 output_args = {}
             sys.stdout.write(output_func(secrets, **output_args))
         else:
-            sys.stdout.write(getSecret(
-                args.credential, 
-                version=args.version,
-                region=region, 
-                kms_region=kms_region,
-                table=args.table,
-                context=args.context,
-                **session_params
-            ))
+            if args.include_metadata:
+                sys.stdout.write(repr(getSecretAndMetadata(
+                    args.credential,
+                    version=args.version,
+                    region=region,
+                    kms_region=kms_region,
+                    table=args.table,
+                    context=args.context,
+                    **session_params
+                )))
+            else:
+                sys.stdout.write(getSecret(
+                    args.credential,
+                    version=args.version,
+                    region=region,
+                    kms_region=kms_region,
+                    table=args.table,
+                    context=args.context,
+                    **session_params
+                ))
             if not args.noline:
                 sys.stdout.write("\n")
     except ItemNotFound as e:
@@ -554,6 +565,19 @@ def getSecret(name, version="", region=None, table="credential-store", context=N
     '''
     fetch and decrypt the secret called `name`
     '''
+    secret, context = getSecretAndMetadata(name=name, version=version, region=region,
+                                          table=table, context=context, dynamodb=dynamodb,
+                                          kms=kms, kms_region=kms_region, **kwargs)
+    return secret
+
+
+def getSecretAndMetadata(name, version="", region=None,
+                        table="credential-store", context=None,
+                        dynamodb=None, kms=None, kms_region=None, **kwargs):
+    """
+    fetch and decrypt the secret called `name`, and also return its version and
+    comments.
+    """
     if not context:
         context = {}
 
@@ -587,7 +611,10 @@ def getSecret(name, version="", region=None, table="credential-store", context=N
 
     key_service = KeyService(kms, None, context)
 
-    return open_aes_ctr_legacy(key_service, material)
+    return (
+        open_aes_ctr_legacy(key_service, material),
+        {"version": material.get("version"), "comment": material.get("comment")}
+    )
 
 
 @clean_fail
@@ -961,6 +988,9 @@ def get_parser():
                                  ([] if NO_YAML else ["yaml"]),
                                  help="Output format. json(default) " +
                                  ("" if NO_YAML else "yaml ") + " csv or dotenv.")
+    parsers[action].add_argument("-m", "--include-metadata", action="store_true",
+                                 help="Return secret metadata (version and comment)"
+                                 "along with the secret itself.")
     parsers[action].set_defaults(action=action)
 
     action = 'getall'
